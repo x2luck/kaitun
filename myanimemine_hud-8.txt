@@ -1,0 +1,1294 @@
+local r=8 task.wait(r)do if not game:IsLoaded()then game.Loaded:Wait()end local r=game:GetService("Players")local U=r.LocalPlayer while not U do task.wait(.25)U=r.LocalPlayer end U:WaitForChild("PlayerGui",30)local i=U.Character or U.CharacterAdded:Wait()if i then i:WaitForChild("HumanoidRootPart",30)end end 
+-- ตัวเก็บค่าตั้ง + แจ้งเตือนเป็น print + ปิดสคริปต์
+local b={Flags={},Options={},Unloaded=false,__threads={},__conns={},__hud=nil}
+function b:Notify() end -- ไม่แสดงแจ้งเตือนของระบบเดิม
+function b:Unload()
+    self.Unloaded=true
+    for _,c0 in ipairs(self.__conns) do pcall(function() c0:Disconnect() end) end
+    for _,t0 in ipairs(self.__threads) do pcall(task.cancel,t0) end
+    if self.__hud then pcall(function() self.__hud:Destroy() end) end
+end
+local B=game:GetService("Players")local Q=game:GetService("RunService")local z=game:GetService("UserInputService")local V=game:GetService("HttpService")local C=game:GetService("Lighting")local e=game:GetService("TeleportService")local x=game:GetService("VirtualUser")local l=game:GetService("ReplicatedStorage")local K=B.LocalPlayer local function j()local r=K.Character return r and r:FindFirstChildOfClass("Humanoid")end local J=((function()local r,U=pcall(function()return require(l.Modules.GameState)end)return r and U or nil end))()local D=((function()local r,U=pcall(function()return require(l.Modules.MineConfig)end)return r and U or nil end))()local w=((function()local r,U=pcall(function()return require(l.Modules.MineStock)end)return r and U or nil end))()local k=((function()local r,U=pcall(function()return require(l.Modules.MineIndexRewardsConfig)end)return r and U or nil end))()local G=((function()local r,U=pcall(function()return require(l.Modules.MineEventsConfig)end)return r and U or nil end))()local function F()if not J then return nil end local r,U=pcall(function()return J.GetData2()end)return r and(type(U)=="table"and U)or nil end local function h()local r=F()return r and(type(r.MineGame)=="table"and r.MineGame)or nil end local function t()local r=workspace:FindFirstChild("MineWorld")local U=r and r:FindFirstChild("Plots")if not U then return nil end for r,U in ipairs(U:GetChildren())do if U:GetAttribute("OwnerUserId")==K.UserId then return U end end for r,U in ipairs(U:GetChildren())do for r,i in ipairs(U:GetDescendants())do if i:IsA("TextLabel")and i.Text:find(K.Name,1,true)then return U end end end return nil end local function T()local r=t()local U=r and r:FindFirstChild("Nodes")return U and U:GetChildren()or{},r end local function a(r)r=tostring(math.floor(tonumber(r)or 0))local U=((r:reverse()):gsub("(%d%d%d)","%1,")):reverse()return(U:gsub("^,",""))end local q=((function()local r,U=pcall(function()return require(l.Modules.MineInventory)end)return r and U or nil end))()local function H(r,...)if not J or type(J.SendEvent)~="function"then return false,"GameState.SendEvent unavailable"end local U,i=pcall(J.SendEvent,r,...)if not U then return false,tostring(i)end return true end local E={Pickaxe=true,BaseSkin=true,Character=true}local function I()local r=h()if not r then return{},"no save data yet"end if not q then return{},"MineInventory module missing"end local U,i=pcall(q.Collect,r,"All")if not U or type(i)~="table"then return{},"inventory read failed"end local B=b.Flags.sell_protect_gear~=false local Q={}for r,U in ipairs(i)do if type(U)=="table"and(U.Key and((tonumber(U.Count)or 0))>0)then if not((B and E[U.Kind]))then table.insert(Q,U.Key)end end end return Q end local p={}local c=Vector3.new(-5988,501,-6000)local function W()local r,U=pcall(function()local r=workspace:FindFirstChild("MineWorld")r=r and r:FindFirstChild("Hub")r=r and r:FindFirstChild("HubWayfinding")r=r and r:FindFirstChild("Trails")return r and r:FindFirstChild("Sell")end)if r and U then local r,i=pcall(function()return(U:GetPivot()).Position end)if r then return i end end return c end local function n()local r=K.Character return r and r:FindFirstChild("HumanoidRootPart")end local function g()local r=F()return tonumber(r and r.Money)or 0 end function p.Sell()local r,U=I()if#r==0 then return false,U or"nothing to sell"end local i=n()if not i then return false,"no character"end if p.__busy and os.clock()-((p.__busyAt or 0))<30 then return false,"already "..tostring(p.__busy)end p.__busy="selling"p.__busyAt=os.clock()local B=0 while p.__mining and B<5 do task.wait(.1)B+=.1 end --[[แก้ 7: รอระบบขุดจบก่อน (สูงสุด 5 วิ)]] i=n()or i local Q=W()local z=i.CFrame local V=((i.Position-Q)).Magnitude>18 if V then i.CFrame=CFrame.new(Q+Vector3.new(0,4,0))task.wait(tonumber(b.Flags.sell_travel_wait)or 1.5)end local got,e=p.__withLock("sell",function() local C=g() H("MineSellItems",r) task.wait(1.2) return g()-C end) --[[แก้ 6: จองล็อกเงินระหว่างขาย]] if V and b.Flags.sell_return~=false then local r=n()if r then r.CFrame=z end end p.__busy,p.__busyAt=nil,nil if not got then return false,"money lock busy" end if e>0 then return true,(("sold %d stacks for %s")):format(#r,a(e))end return false,"server refused the sale"end function p.CollectChest()local r=h()if not r or next(r.Chest or{})==nil then return false,"chest is empty"end local U,i=H("MineTakeChest")return U,U and"chest collected"or i end function p.CollectIndex()if not k then return false,"MineIndexRewardsConfig missing"end local r=h()if not r then return false,"data not loaded"end local U,i=pcall(k.Keys)if not U or type(i)~="table"then return false,"no index categories"end local B=0 for U,i in ipairs(i)do if b.Unloaded then break end local Q,z=pcall(k.State,r,i)if Q and(type(z)=="table"and type(z.Track)=="table")then for r,U in ipairs(z.Track)do if U.Reached and not U.Claimed then local r=U.ClaimedRewards or{}for Q in ipairs(U.Rewards or{})do if not r[Q]and not b.Unloaded then if H("MineIndexClaim",i,U.Key,Q)then B+=1 task.wait(.5)end end end end end end end if B==0 then return false,"no index rewards ready"end return true,(("claimed %d index reward%s")):format(B,B==1 and""or"s")end local M={data=nil;at=0}if J and J.ListenToEvent then pcall(J.ListenToEvent,"MineEventsState",function(r)if type(r)=="table"then M.data=r M.at=os.clock()end end)end local d=4 local function Z(r)local U=M.at for i=1,d,1 do if b.Unloaded then break end H("MineEventsOpen",r)task.wait(.8)H("MineEventsState",r)local B=0 while M.at==U and(B<2.5 and not b.Unloaded)do task.wait(.25)B+=.25 end if M.at~=U then return M.data end end if M.data and os.clock()-M.at<30 then return M.data end return nil end local O=3 local function s(r,U)if not G or type(G.Active)~="function"then return O end local i,b=pcall(G.Active)if not i or type(b)~="table"then return O end for i,b in ipairs(b)do if b.Id==r then local r=type(G.Catalog)=="table"and G.Catalog or{}local i,B=pcall(G.Tiers,b.Days,r[b.Key])if i and(type(B)=="table"and type(B[U])=="table")then local r=#((B[U].Rewards or{}))if r>0 then return r end end return O end end return O end function p.CollectEvents()if not G then return false,"MineEventsConfig missing"end local r,U=pcall(G.Active)if not r or type(U)~="table"or#U==0 then return false,"no events running"end local i=Z(U[1].Id)if type(i)~="table"or type(i.Events)~="table"then return false,"no reply from the event board"end local B=0 for r,U in ipairs(i.Events)do if b.Unloaded then break end local i=tonumber(U.Points)or 0 local Q=type(U.Thresholds)=="table"and U.Thresholds or{}local z=type(U.Claimed)=="table"and U.Claimed or{}local V=type(U.Got)=="table"and U.Got or{}for r,Q in pairs(Q)do local C=tonumber(Q)if C and(i>=C and(not z[r]and not b.Unloaded))then local i=tonumber(V[r])or 0 for Q=1,s(U.Id,r),1 do if not bit32.btest(i,2^((Q-1)))and not b.Unloaded then if H("MineEventsClaim",U.Id,r,Q)then B+=1 task.wait(.5)end end end end end end if B==0 then return false,"no event rewards ready"end return true,(("claimed %d event reward%s")):format(B,B==1 and""or"s")end function p.BuffMode()local r,U=H("MineBuffModeClaim")return r,r and"buff claimed"or U end function p.SelectZone(r)if not r or r==""then return false,"no zone selected"end local U,i=H("MineSelectZone",r)return U,U and("travelling to "..tostring(r))or i end function p.SetAutoSell(r,U)if not r then return false,"no item key"end local i,b=H("MineAutoSellSet",r,U and true or false)return i,i and"auto-sell updated"or b end function p.UseCode(r)if not r or r==""then return false,"enter a code first"end local U,i=H("UseCode",r)return U,U and("sent code "..r)or i end local o={"BLUEMOON","EnchantedStrength";"MUTATIONLUCK"}local function S()local r=K:FindFirstChild("PlayerGui")local U=r and r:FindFirstChild("ScreenGui")local i=U and U:FindFirstChild("Notifications")local b=i and i:FindFirstChild("Content")local B=b and b:FindFirstChild("NotificationHolder")local Q={}if not B then return Q end for r,U in ipairs(B:GetDescendants())do if U:IsA("TextLabel")and U.Name=="NotifContent"then Q[#Q+1]=U end end return Q end function p.RedeemAll()local r,U,i,B=0,0,0,0 for Q,z in ipairs(o)do if b.Unloaded then break end local V={}for r,U in ipairs(S())do V[U]=true end if not H("UseCode",z)then B+=1 else task.wait(1.4)local b for r,U in ipairs(S())do if not V[U]then b=U.Text end end b=string.lower(b or"")if string.find(b,"redeemed!",1,true)then r+=1 elseif string.find(b,"already",1,true)then U+=1 elseif string.find(b,"expired",1,true)or string.find(b,"invalid",1,true)then i+=1 else B+=1 end end end local Q={}if r>0 then Q[#Q+1]=r.." redeemed"end if U>0 then Q[#Q+1]=U.." already claimed"end if i>0 then Q[#Q+1]=i.." expired or invalid"end if B>0 then Q[#Q+1]=B.." no reply"end if#Q==0 then return false,"no codes went out"end return true,table.concat(Q,", ")end local m=((function()local r,U=pcall(function()return require(l.Modules.Items)end)return r and U or nil end))()local function Y()local r=F()return tonumber(r and r.Money)or 0 end 
+function p.BuyCore()
+    local r=h() if not r then return false,"no save data yet" end
+    if not D or type(D.CoreNodes)~="table" or type(D.CoreUpgradeById)~="table" then return false,"core config unavailable" end
+    local bought,refused,poor,lockBusy=0,0,0,false
+    for _=1,60 do
+        local pick
+        for _,nd in ipairs(D.CoreNodes) do
+            local up=D.CoreUpgradeById[nd.Family]
+            if up and up.Event then
+                local okM,maxed=pcall(D.IsCoreNodeMaxed,r,nd) maxed=(not okM) or maxed -- [แก้ 12] อ่านไม่ได้ = ถือว่าเต็ม
+                local okO,open=pcall(D.IsCoreNodeOpen,r,nd) open=okO and open -- [แก้ 12] อ่านไม่ได้ = ไม่เปิด
+                if open and not maxed then
+                    local okL,lv=pcall(D.GetCoreLevel,r,nd.Family) lv=(okL and tonumber(lv)) or 0
+                    local _,cost=pcall(up.Cost,lv)
+                    if lv<(tonumber(up.Max) or math.huge) then
+                        cost=tonumber(cost) or math.huge
+                        if cost<=Y() then pick={fam=nd.Family,ev=up.Event,lvl=lv,cost=cost} break else poor=poor+1 end
+                    end
+                end
+            end
+        end
+        if not pick then break end
+        -- [แก้ 6] จองล็อกเงินระหว่างยิง + เช็คผล
+        local got,res=p.__withLock("core",function()
+            if Y()<pick.cost then return "poor" end
+            H(pick.ev) task.wait(.45)
+            r=h() or r
+            local _,nl=pcall(D.GetCoreLevel,r,pick.fam)
+            return ((tonumber(nl) or 0)>pick.lvl) and "ok" or "refused"
+        end)
+        if not got then lockBusy=true break end
+        if res=="ok" then bought=bought+1 elseif res=="poor" then poor=poor+1 break else refused=refused+1 break end
+    end
+    if bought>0 then return true,("bought %d core upgrade(s)"):format(bought) end
+    if lockBusy then return false,"money lock busy" end
+    if refused>0 then return false,"server refused a core purchase" end
+    if poor>0 then return false,"cannot afford any core upgrades yet" end
+    return false,"no core upgrades left"
+end
+function p.BuySkills()
+    -- [แก้ v16/v18] ใช้ตัวเลือกโหนดเดียวกับสมองกลาง: โหนดลำดับแรก (research_first) ก่อน ถ้าเงินยังไม่พอ = เก็บเงินรอ (ไม่ซื้อโหนดอื่นแทน)
+    local r=h() if not r then return false,"no save data yet" end
+    if not D or type(D.GetSkillNodes)~="function" then return false,"skill config unavailable" end
+    local bought,refused,poor,lockBusy=0,0,false,false
+    local opened={}
+    for _=1,60 do
+        local list,team=p.__skillScan(r)
+        local pick=p.__skillChoose(list,team)
+        if not pick then break end
+        if pick.cost>Y() then poor=true break end
+        if not opened[pick.zone] then H("MineSkillTreeSection",pick.zone) opened[pick.zone]=true task.wait(.6) end
+        -- [แก้ 6] จองล็อกเงินระหว่างยิง + เช็คผล
+        local got,res=p.__withLock("skill",function()
+            if Y()<pick.cost then return "poor" end
+            H("MineBuySkill",pick.zone,pick.fam,pick.node.Id) task.wait(.45)
+            r=h() or r
+            local nl=tonumber(((r.Skills or {})[pick.zone] or {})[pick.fam]) or 0
+            return (nl>pick.lv) and "ok" or "refused"
+        end)
+        if not got then lockBusy=true break end
+        if res=="ok" then bought=bought+1 elseif res=="poor" then poor=true break else refused=refused+1 break end
+    end
+    if bought>0 then return true,("bought %d skill(s)"):format(bought) end
+    if lockBusy then return false,"money lock busy" end
+    if refused>0 then return false,"server refused a skill purchase" end
+    if poor then return false,"cannot afford any skills yet" end
+    return false,"no skills left"
+end
+function p.BuyUpgrades()local i,b=p.BuySkills()local r,U=p.BuyCore()--[[แก้ 2: ซื้อสกิลก่อน แล้วค่อย Core]] if r or i then local B={}if r then B[#B+1]=tostring(U)end if i then B[#B+1]=tostring(b)end return true,table.concat(B,", ")end return false,tostring(b or U)end p.BuyResearch=p.BuyUpgrades local v={"Damage","Speed","MineSpeed"}local function N(r)if type(r)~="table"or not r.CharName then return nil end if not((m and type(m.GetItemData)=="function"))then return nil end local U,i=pcall(m.GetItemData,r.CharName)return U and i or nil end local function y(r,U,i,b)b=b or N(i)if not b or not D then return 0 end local B,Q=pcall(D.GetHolderDamage,i,b)Q=(B and tonumber(Q))or 0 local z=D.GetEnchantPowerMult or D.GetEnchantDamageMult if type(z)=="function"then local i,b=pcall(z,r,U)if i and(type(b)=="number"and b>0)then Q=Q*b end end return Q end local function P(r)if type(r)~="table"or not D then return nil end local U,i=pcall(D.GetHolderVariant,r)if not U or type(i)~="string"then return nil end if i==D.DefaultVariant then return nil end return i end local function u(r)if type(r)~="string"then return nil end return r:match("^%s*(%a+)")end local function A()local r=h()local U={}if not r or not D then return U end for i,b in pairs(r.Holders or{})do if type(b)=="table"then local B=N(b)U[#U+1]={key=i;name=tostring(b.CharName or i);dmg=y(r,i,b,B),level=tonumber(select(2,pcall(D.GetHolderLevel,b)))or 0;variant=P(b),hauler=(B and B.MineRole=="Hauler")or false}end end table.sort(U,function(r,U)if r.hauler~=U.hauler then return U.hauler end if r.dmg~=U.dmg then return r.dmg>U.dmg end return r.key<U.key end)return U end local function X(r)local U=r.name if r.variant then U=U..(" ("..(r.variant..")"))end if r.hauler then return(("%s Lv%d - hauler [%s]")):format(U,r.level,r.key)end return(("%s Lv%d - %s dmg [%s]")):format(U,r.level,a(r.dmg),r.key)end local function L(r)if type(r)~="string"then return nil end return r:match("%[(M%d+)%]$")end local function R(r,U,i)local b=((r.Holders or{}))[U]local B=N(b)if not B then return nil end local Q,z if i=="Damage"then Q=tonumber(select(2,pcall(D.GetHolderLevel,b)))or 0 local i,V=pcall(D.GetCharLevelCap,r,U,b,B,m.GetItemData)V=i and tonumber(V)or nil if V and Q>=V then return nil end z=select(2,pcall(D.GetCharacterUpgradeCost,Q,B))elseif i=="Speed"then Q=tonumber(select(2,pcall(D.GetHolderSpeedLevel,b)))or 0 local r,U=pcall(D.ClampCharSpeedLevel,Q+1)U=r and tonumber(U)or nil if U and U<=Q then return nil end z=select(2,pcall(D.GetCharacterSpeedUpgradeCost,Q,B))elseif i=="MineSpeed"then Q=tonumber(select(2,pcall(D.GetHolderMineSpeedLevel,b)))or 0 local r,U=pcall(D.ClampCharMineSpeedLevel,Q+1)U=r and tonumber(U)or nil if U and U<=Q then return nil end z=select(2,pcall(D.GetCharacterMineSpeedUpgradeCost,Q,B))else return nil end z=tonumber(z)if not z or z<=0 then return nil end return{key=U;stat=i,level=Q;cost=z}end local function f(r,U,i,b)local B=tonumber(select(2,pcall(D.GetCharacterLevelMultiplier,b)))local Q=tonumber(select(2,pcall(D.GetCharacterLevelMultiplier,b+1)))if not B or not Q or B<=0 then return nil end local z=y(r,U,i)if z<=0 then return nil end return z*((Q/B-1))end 
+-- [แก้ 6] ล็อกเงินกลาง: ระบบที่ทำให้เงินเปลี่ยน (อัพตัว / Core / สกิล / อีเตอร์ / ปลดโซน / Mutation / ขาย) ยิงทีละระบบตามคิว
+--   รอคิวได้สูงสุด 5 วิ (เกิน = ข้ามครั้งนี้), จองจนเช็คผลครั้งนั้นเสร็จ, ปล่อยทุกทางออกแม้ error
+p.__spendLock={next=0,serving=1,gone={},holder=nil}
+p.__withLock=function(tag,fn)
+    local L=p.__spendLock
+    L.next=L.next+1
+    local my=L.next
+    local t0=os.clock()
+    local function advance()
+        L.serving=L.serving+1
+        while L.gone[L.serving] do L.gone[L.serving]=nil L.serving=L.serving+1 end
+    end
+    while L.serving~=my do
+        if L.holder and os.clock()-L.holder.at>15 then L.holder=nil advance() -- คนถือค้างเกิน 15 วิ (ไม่ควรเกิด) → ข้ามคิวนั้น
+        elseif os.clock()-t0>=5 then L.gone[my]=true return false end
+        if L.serving~=my then task.wait(0.05) end
+    end
+    L.holder={tag=tag,at=os.clock()}
+    local res=table.pack(pcall(fn))
+    L.holder=nil
+    advance()
+    if not res[1] then error(res[2],0) end
+    return true,table.unpack(res,2,res.n)
+end
+-- [แก้ v16] อัพตัวเฉพาะ: ทุกตัวบนแท่นที่ระดับ Mythical ขึ้นไป (ตามลำดับระดับของเกม) และเป็นตัวของโซนลึกสุดที่ปลดแล้ว
+--   ต่ำกว่า Mythical / ตัวโซนเก่า / อ่านระดับ-ลำดับระดับ-โซนไม่ได้ = ห้ามอัพ
+p.__crewRarity=function(data)
+    if type(data)~="table" then return nil end
+    local idx=D and D.RarityIndex
+    local function ok(v) return type(v)=="string" and type(idx)=="table" and idx[v]~=nil end
+    local keys={"Rarity","rarity","RarityName","Tier"}
+    local s0,rv=pcall(function() return data.Rarity end)
+    if s0 and type(rv)=="table" then
+        for _,k in ipairs({"Rarity","Name","Id","Key"}) do local v=rawget(rv,k) if ok(v) then return v end end
+    end
+    for _,k in ipairs(keys) do
+        local s1,v=pcall(function() return data[k] end)
+        if s1 and ok(v) then return v end
+    end
+    for _,sub in pairs(data) do
+        if type(sub)=="table" then
+            for _,k in ipairs(keys) do local v=rawget(sub,k) if ok(v) then return v end end
+        end
+    end
+    return nil
+end
+p.__crewZone=function()
+    local r0=h()
+    if not r0 or not D then return nil,nil end
+    local deepest
+    for _,z in ipairs(D.ZoneKeys or {}) do if (r0.UnlockedZones or {})[z] then deepest=z end end
+    if not deepest then return nil,nil end
+    local zd=type(D.Zones)=="table" and D.Zones[deepest]
+    local pool=type(zd)=="table" and zd.CharacterPool
+    if type(pool)~="table" then return deepest,nil end
+    local set,list={},{}
+    for _,e in pairs(pool) do
+        local nm=(type(e)=="table" and e.Name) or (type(e)=="string" and e) or nil
+        if type(nm)=="string" and not set[nm] then set[nm]=true list[#list+1]=nm end
+    end
+    if #list==0 then return deepest,nil end
+    return deepest,set,list
+end
+p.__zoneTargets=function(zk,list)
+    p.__tgtCache=p.__tgtCache or {}
+    if p.__tgtCache[zk] then return p.__tgtCache[zk] end
+    local out={}
+    for _,nm in ipairs(list or {}) do
+        local rr=p.__crewRarity(N({CharName=nm}))
+        local rk,mr=rr and p.__rarityRank(rr),p.__minRank()
+        if rk and mr and rk>=mr then out[#out+1]=nm.." ("..rr..")" end
+    end
+    table.sort(out)
+    p.__tgtCache[zk]=out
+    return out
+end
+-- ลำดับระดับจากเกม (เลขยิ่งมากยิ่งหายาก): RarityIndex ก่อน ไม่ได้ค่อยใช้ RarityOrder / อ่านไม่ได้ = nil
+p.__rarityRank=function(name)
+    if type(name)~="string" or not D then return nil end
+    local idx=D.RarityIndex
+    local v=type(idx)=="table" and tonumber(idx[name]) or nil
+    if v then return v end
+    local ord=D.RarityOrder
+    if type(ord)=="table" then for i,n0 in ipairs(ord) do if n0==name then return i end end end
+    return nil
+end
+-- ระดับขั้นต่ำที่อัพ (CONFIG.crew_min_rarity) — ลำดับอ่านไม่ได้หรือกลับด้าน (Common สูงกว่า) = nil → ไม่อัพเลย
+p.__minRank=function()
+    local nm=tostring(b.Flags.crew_min_rarity or "Mythical")
+    local mr=p.__rarityRank(nm)
+    local cr=p.__rarityRank("Common")
+    if not mr or (cr and cr>=mr) then return nil,nm end
+    return mr,nm
+end
+-- [แก้ v21] หลอดวิจัยของโซนที่กั้นโซนถัดไป (แบบเดียวกับหลอดบน HUD) 0..1 / nil = อ่านไม่ได้หรือโซนสุดท้าย
+p.__zonePct=function()
+    local r0=h()
+    if not r0 or not D or type(D.GetZoneResearchProgress)~="function" or type(D.ZoneResearchGateFor)~="function" then return nil end
+    local nk
+    for _,z in ipairs(D.ZoneKeys or {}) do if not (r0.UnlockedZones or {})[z] then nk=z break end end
+    if not nk then return nil end
+    local okG,gate=pcall(D.ZoneResearchGateFor,nk)
+    if not okG or gate==nil then return nil end
+    local okP,a1,a2=pcall(D.GetZoneResearchProgress,r0.Skills,gate)
+    a1,a2=tonumber(a1),tonumber(a2)
+    if not okP or not a1 or not a2 or a2<=0 then return nil end
+    return math.clamp(a1/a2,0,1)
+end
+-- [แก้ v21] กฎสำรอง: หลอดวิจัยโซนถึง crew_fallback_at แล้วยังไม่มีตัว Mythical+ ของโซนล่าสุดบนแท่น
+--   → ลดระดับขั้นต่ำเป็น crew_fallback_rarity (Legendary) เฉพาะตัวของโซนล่าสุด
+--   เปิดแล้วจำไว้จนกว่าจะปลดโซนถัดไป (ได้ Mythical ทีหลังก็ยังอัพ Legendary ต่อ) — จำไว้ใน getgenv รันสคริปต์ใหม่ก็ไม่หาย
+p.__crewFbStore=function() return (getgenv and getgenv()) or _G end
+p.__crewFallback=function(zk,pool,holders,minR)
+    local name=b.Flags.crew_fallback_rarity
+    local at=tonumber(b.Flags.crew_fallback_at)
+    if type(name)~="string" or name=="" or not at or zk==nil then return nil end
+    local fbR=p.__rarityRank(name)
+    if not fbR or fbR>=minR then return nil end
+    local G=p.__crewFbStore()
+    if G.MAMHubCrewFallback==zk then return fbR,name end
+    local pct=p.__zonePct()
+    if not pct or pct<at then return nil,name,at end
+    for _,hd in pairs(holders) do
+        if type(hd)=="table" and pool[hd.CharName] then
+            local rr=p.__crewRarity(N(hd))
+            local rk=rr and p.__rarityRank(rr)
+            if rk and rk>=minR then return nil end
+        end
+    end
+    G.MAMHubCrewFallback=zk
+    return fbR,name
+end
+-- กฎสำรองเปิดอยู่สำหรับโซนล่าสุดไหม (ให้ HUD)
+p.__crewFallbackOn=function()
+    local zk=p.__crewZone()
+    local name=b.Flags.crew_fallback_rarity
+    if zk and type(name)=="string" and p.__crewFbStore().MAMHubCrewFallback==zk then return name end
+    return nil
+end
+p.__crewAllowed=function(list)
+    local r0=h()
+    local holders=(r0 and r0.Holders) or {}
+    local zk,pool,plist=p.__crewZone()
+    if not pool then
+        return {},(zk and ("cannot read "..tostring(zk).." character pool - nothing upgraded") or "cannot read zones - nothing upgraded"),{},0,zk,nil
+    end
+    local minR,minName=p.__minRank()
+    if not minR then return {},"cannot read rarity order - nothing upgraded",{},0,zk,plist end
+    local fbR,fbName,fbAt=p.__crewFallback(zk,pool,holders,minR)
+    local pendingFb=nil
+    if fbR then minR,minName=fbR,fbName elseif fbName and fbAt then pendingFb=("(%s from %d%%)"):format(fbName,math.floor(fbAt*100+.5)) end
+    local keys,picked,unknown={},{},0
+    for _,e in ipairs(list) do
+        local hd=holders[e.key]
+        e.rarity=p.__crewRarity(N(hd))
+        e.inZone=(type(hd)=="table" and pool[hd.CharName]) and true or false
+        local rk=e.rarity and p.__rarityRank(e.rarity)
+        if not rk then unknown=unknown+1
+        elseif e.inZone and rk>=minR then keys[#keys+1]=e.key picked[#picked+1]=e.key.." "..e.rarity end
+    end
+    local why
+    if #keys==0 then
+        if #list>0 and unknown==#list then why="cannot read crew rarity - nothing upgraded"
+        else why="no "..minName.."+ from "..tostring(zk).." in your crew"..(pendingFb and (" "..pendingFb) or "") end
+    end
+    return keys,why,picked,unknown,zk,plist
+end
+-- [สมองกลาง] ใช้ตัดสินใจร่วมกันทั้งหน้าจอ HUD และระบบอัพตัว
+--   buy   = มีสกิลที่พลังถึงและเงินพอ → ซื้อสกิล (ไม่อัพตัว)
+--   save  = มีสกิลที่พลังถึงแต่เงินไม่พอ → เก็บเงินซื้อสกิล (ไม่อัพตัว)
+--   power = สกิลที่เหลือติดพลังทีมทั้งหมด → ใช้เงินเพิ่มพลัง (อัพตัวทุกสแตท + อีเตอร์ + Core)
+--   zone  = วิจัยครบ ยังไม่ปลดโซนถัดไป → เก็บเงินปลดโซน (ไม่อัพตัว ถ้า crew_wait_zone_unlock)
+--   free  = ไม่มีอะไรให้ซื้อ → ใช้เงินได้อิสระ
+-- [แก้ v16-v18] โหนดลำดับแรก = โหนดที่ชื่อ/Family/Id หรือคำอธิบายของเกม (MineConfig.SkillById[Family]) มีคำใน CONFIG.research_first
+p.__isDmgNode=function(zk,nd)
+    local words=b.Flags.research_first
+    if type(words)~="table" or #words==0 or type(nd)~="table" then return false end
+    local info
+    pcall(function() info=type(D.SkillById)=="table" and D.SkillById[nd.Family] or nil end)
+    local src={nd,nd,nd,nd,info,info}
+    for i,k in ipairs({"Family","Name","Id","DisplayName","DisplayName","Desc"}) do
+        local t0=src[i]
+        local okV,v0=pcall(function() return type(t0)=="table" and t0[k] or nil end)
+        if okV and (type(v0)=="string" or type(v0)=="number") then
+            local lv0=tostring(v0):lower()
+            for _,w in ipairs(words) do
+                if type(w)=="string" and w~="" and lv0:find(w:lower(),1,true) then return true end
+            end
+        end
+    end
+    return false
+end
+-- ไล่โหนดที่ซื้อต่อได้ทุกโซนที่ปลด (เปิด ไม่เต็ม เลเวล<สูงสุด อ่านราคาได้) + พลังที่ต้องใช้ของเลเวลถัดไป
+p.__skillScan=function(r0)
+    local out,power={},nil
+    local function team()
+        if power==nil then local okT,tp=pcall(D.GetTeamPower,r0,m and m.GetItemData) power=(okT and tonumber(tp)) or 0 end
+        return power
+    end
+    for _,zk in ipairs(D.ZoneKeys or {}) do
+        if (r0.UnlockedZones or {})[zk] then
+            local sk=(r0.Skills or {})[zk] or {}
+            local okN,nodes=pcall(D.GetSkillNodes,zk)
+            for _,nd in ipairs((okN and type(nodes)=="table" and nodes) or {}) do
+                local okM,mx=pcall(D.IsSkillNodeMaxed,sk,nd) mx=(not okM) or mx -- [แก้ 12] อ่านไม่ได้ = ถือว่าเต็ม
+                local okO,op=pcall(D.IsSkillNodeOpen,sk,nd) op=okO and op -- [แก้ 12] อ่านไม่ได้ = ไม่เปิด
+                if op and not mx then
+                    local lv=tonumber(sk[nd.Family]) or 0
+                    local okX,maxLv=pcall(D.GetSkillMax,zk,nd.Family)
+                    local okC,cost=pcall(D.GetSkillCost,zk,lv,nd.Family)
+                    cost=okC and tonumber(cost) or nil
+                    if okX and cost and lv<(tonumber(maxLv) or 0) then
+                        local req
+                        if type(D.GetSkillPowerReq)=="function" then
+                            local okR,rq=pcall(D.GetSkillPowerReq,zk,nd.Family,lv+1)
+                            req=okR and tonumber(rq) or nil
+                        end
+                        out[#out+1]={zone=zk,node=nd,name=tostring(nd.Name or nd.Family or nd.Id),fam=nd.Family,lv=lv,cost=cost,req=req,
+                            dmg=p.__isDmgNode(zk,nd),key=zk..":"..tostring(nd.Id or nd.Family)..":"..lv}
+                    end
+                end
+            end
+        end
+    end
+    return out,team
+end
+-- [แก้ v19] อัพตัวเพิ่มพลังได้ไหม: เปิดอัพตัว + มีตัวผ่านกฎ + อย่างน้อยหนึ่งสแตทยังไม่ตัน (ไม่ดูเงิน — เงินไม่พอแค่รอ)
+p.__crewCanGrow=function()
+    if not b.Flags.auto_crew then return false,"auto_crew off" end
+    if not D then return false,"game modules not ready" end
+    local okA,list=pcall(A)
+    if not okA or type(list)~="table" or #list==0 then return false,"no crew slots yet" end
+    local keys,why=p.__crewAllowed(list)
+    if #keys==0 then return false,why end
+    -- เกมไม่ให้อัพตัวรอบล่าสุด (ภายใน 60 วิ ยังไม่มีครั้งที่สำเร็จหลังจากนั้น) → ถือว่าอัพไม่ได้ชั่วคราว กันสกิลค้างรอ
+    if p.__crewRefusedAt and os.clock()-p.__crewRefusedAt<60 and not (p.__crewOkAt and p.__crewOkAt>p.__crewRefusedAt) then
+        return false,"server refused the upgrade"
+    end
+    local r0=h()
+    if not r0 then return false,"waiting for game data" end
+    local stats=b.Flags.crew_stats
+    if type(stats)~="table" or #stats==0 then stats={"Damage"} end
+    for _,k in ipairs(keys) do
+        for _,st in ipairs(stats) do
+            local okR,v0=pcall(R,r0,k,st)
+            if okR and v0 then return true end
+        end
+    end
+    return false,"crew capped"
+end
+-- เลือกโหนด: โหนดลำดับแรกที่พลังถึง (ถูกสุด) ก่อน → ไม่มีค่อยเอาโหนดอื่นที่พลังถึง (ถูกสุด)
+--   ไม่มีที่พลังถึงเลย → โหนดติดพลัง (ลำดับแรกก่อน แล้วค่อยที่ต้องใช้พลังน้อยสุด) = โหมด power
+p.__skillChoose=function(list,team)
+    local dOK,oOK,dPow,oPow
+    for _,c in ipairs(list) do
+        if not c.req or c.req<=team() then
+            if c.dmg then if not dOK or c.cost<dOK.cost then dOK=c end
+            elseif not oOK or c.cost<oOK.cost then oOK=c end
+        else
+            if c.dmg then if not dPow or c.req<dPow.req then dPow=c end
+            elseif not oPow or c.req<oPow.req then oPow=c end
+        end
+    end
+    local okPick,first=dOK or oOK,nil
+    -- [แก้ v19] โหนดลำดับแรก (Density) ติดพลังทีม และไม่มีโหนดลำดับแรกที่ซื้อได้ → ไปเพิ่มพลังก่อน (โหมด power, ไม่ซื้อโหนดอื่น)
+    --   ถ้าอัพตัวเพิ่มพลังไม่ได้ (ไม่มีตัวผ่านกฎ / ตันเลเวล / ปิดอัพตัว) → กลับไปซื้ออันถูกสุดตามเดิม กันค้าง
+    if not dOK and dPow then
+        local canGrow,why=p.__crewCanGrow()
+        if canGrow then okPick=nil else first={node=dPow,why=why} end
+    end
+    return okPick,dPow or oPow,first
+end
+p.__brain=function()
+    local r0=h()
+    if not r0 or not D or type(D.GetSkillNodes)~="function" then return {mode="nodata"} end
+    local money=Y()
+    local list,team=p.__skillScan(r0)
+    local bestOK,bestPow,first=p.__skillChoose(list,team)
+    local power=(bestOK and bestOK.req) and team() or nil
+    if bestOK then return {mode=(money>=bestOK.cost) and "buy" or "save",target=bestOK,money=money,power=power,first=first} end
+    if bestPow then return {mode="power",target=bestPow,money=money,power=team()} end
+    if type(D.ZoneResearchGateFor)=="function" and type(D.IsZoneResearchComplete)=="function" then
+        for _,zk in ipairs(D.ZoneKeys or {}) do
+            if not (r0.UnlockedZones or {})[zk] then
+                local okG,gate=pcall(D.ZoneResearchGateFor,zk)
+                local okC,done=pcall(D.IsZoneResearchComplete,r0.Skills,gate)
+                if okG and okC and done then
+                    local zc=nil
+                    if type(p.__zoneCost)=="function" then local okZ,v0=pcall(p.__zoneCost,zk) zc=okZ and v0 or nil end
+                    return {mode="zone",target={zone=zk,name="ปลดโซน "..zk,cost=zc,key="zone:"..zk},money=money}
+                end
+                break
+            end
+        end
+    end
+    return {mode="free",money=money}
+end
+-- [แก้ 1] แคชผลสมองกลาง 0.5 วิ (ระบบอัพตัวเช็คซ้ำก่อนยิงทุกครั้ง ไม่ให้คำนวณหนัก)
+p.__brainCompute=p.__brain
+p.__brain=function()
+    local now=os.clock()
+    if p.__brainCache and now>=p.__brainAt and now-p.__brainAt<0.5 then return p.__brainCache end
+    local r0=p.__brainCompute()
+    p.__brainCache,p.__brainAt=r0,now
+    return r0
+end
+-- อัพตัวได้เฉพาะโหมด power / free (และ zone ถ้าปิด crew_wait_zone_unlock)
+p.__treeCanProgress=function()
+    local br=p.__brain()
+    if br.mode=="nodata" then return true,"waiting for game data" end
+    if br.mode=="buy" or br.mode=="save" then return true,"saving money for skill tree ("..tostring(br.target.zone).." "..tostring(br.target.name)..")" end
+    if br.mode=="zone" and b.Flags.crew_wait_zone_unlock~=false then return true,"saving money to unlock "..tostring(br.target.zone) end
+    return false,nil
+end
+
+function p.UpgradeCrew()
+    -- [แก้ 8] เก็บผลล่าสุดไว้ให้ HUD: สำเร็จไหม / เหตุผล / เวลา / พักเพราะสกิลทรีหรือไม่
+    local function fin(ok,why,busy)
+        p.__crewLast={ok=ok and true or false,why=why,at=os.clock(),busy=busy and true or false}
+        return ok,why
+    end
+    if not D or not m then return fin(false,"game modules not ready") end
+    do local busy,why0=p.__treeCanProgress() if busy then p.__crewHold=why0 return fin(false,why0,true) end p.__crewHold=nil end
+    local r=A()
+    if #r==0 then return fin(false,"no crew slots yet") end
+    local U=b.Flags.crew_stats
+    if type(U)~="table" or #U==0 then U={"Damage"} end
+    local B,why=p.__crewAllowed(r)
+    if #B==0 then return fin(false,why) end
+    local function Q(rr,money,stat)
+        local best,score
+        for _,key in ipairs(B) do
+            local V=R(rr,key,stat)
+            if V and V.cost<=money then
+                local sc
+                if stat=="Damage" then
+                    local gain=f(rr,key,(rr.Holders or {})[key],V.level)
+                    sc=gain and (gain/V.cost) or (1/V.cost)
+                else
+                    sc=1/V.cost
+                end
+                if not score or sc>score then best,score=V,sc end
+            end
+        end
+        return best
+    end
+    local bought,spent,per=0,0,{}
+    local fails,t0,rot=0,os.clock(),1
+    local allowAt,stopWhy,stopBusy=os.clock(),nil,false
+    while bought<300 and (os.clock()-t0)<30 do
+        -- [แก้ 1] ทุก 2 วิ คำนวณรายชื่อตัวที่อนุญาตใหม่ (ช่องที่ไม่ผ่านกฎแล้ว = เลิกอัพ)
+        if os.clock()-allowAt>=2 then
+            allowAt=os.clock()
+            local nb,w2=p.__crewAllowed(A())
+            B=nb
+            if #B==0 then stopWhy=w2 break end
+        end
+        local rr=h()
+        if not rr then break end
+        local money,pick=Y(),nil
+        for _=1,#U do
+            local st=U[rot]
+            rot=(rot%#U)+1
+            pick=Q(rr,money,st)
+            if pick then break end
+        end
+        if not pick then break end
+        -- [แก้ 1] ก่อนยิงทุกครั้ง: สกิลทรีกลับมาไปต่อได้ / ต้องเก็บเงิน → หยุดอัพตัวทันที
+        local busy1,why1=p.__treeCanProgress()
+        if busy1 then p.__crewHold=why1 stopWhy,stopBusy=why1,true break end
+        -- [แก้ 6] จองล็อกเงินระหว่างยิง + เช็คผล
+        local got,sent,before,after=p.__withLock("crew",function()
+            local bf=Y()
+            if not H("MineUpgradeCharacter",pick.key,pick.stat) then return false,bf,bf end
+            task.wait(.3)
+            return true,bf,Y()
+        end)
+        if not got then stopWhy="money lock busy" break end
+        if not sent then break end
+        if after<before then
+            bought=bought+1
+            spent=spent+(before-after)
+            fails=0
+            per[pick.stat]=(per[pick.stat] or 0)+1
+            p.__crewOkAt=os.clock()
+        else
+            fails=fails+1
+            if fails>=3 then break end
+        end
+    end
+    if bought==0 then
+        if stopWhy then return fin(false,stopWhy,stopBusy) end
+        if fails>0 then p.__crewRefusedAt=os.clock() return fin(false,"server refused the upgrade") end -- [แก้ v19] จำเวลาไว้ให้ระบบวิจัยรู้
+        return fin(false,("nothing affordable - %s in the bank"):format(a(Y())))
+    end
+    local K={}
+    for _,st in ipairs(v) do if per[st] then K[#K+1]=("%d %s"):format(per[st],st) end end
+    return fin(true,("bought %s for %s - %s left"):format(table.concat(K," + "),a(spent),a(Y())))
+end
+function p.EquipBest()local function r()local r=h()local U={}for r,i in pairs(((r or{})).Holders or{})do if type(i)=="table"then U[#U+1]=tostring(r)..(":"..(tostring(i.CharName)..(":"..tostring(i.Pickaxe))))end end table.sort(U)return table.concat(U,"|")end local U=r()local i,b=H("MineEquipBest")if not i then return false,b end task.wait(1.5)if r()~=U then return true,"equipped best loadout"end return true,"already running the best loadout"end local function rP(r)if not((w and w.GetRemaining))then return math.huge end local U,i=pcall(w.GetRemaining,nil,r)if not U or type(i)~="number"then return math.huge end return i end local function UP(r)return r.Stock~=nil and not r.RobuxOnly end local function iP(r)local U=((D or{})).Pickaxes if type(U)~="table"then return nil end local i={}for r,U in ipairs(U)do i[U.Name]=tonumber(U.Multiplier)or 0 end local b for r,U in pairs(((r or{})).Holders or{})do if type(U)=="table"then local r=U.Pickaxe and i[U.Pickaxe]or 0 if not b or r<b then b=r end end end return b end function p.BuyBestPickaxe()local r=((D or{})).Pickaxes if type(r)~="table"then return false,"MineConfig.Pickaxes missing"end local U=h()if not U then return false,"data not loaded"end local i=g()local b=type(U.UnlockedZones)=="table"and U.UnlockedZones or{}local B,Q for r,U in ipairs(r)do local z=tonumber(U.Cost)or math.huge local V=tonumber(U.Multiplier)or 0 if UP(U)and(b[U.ZoneReq]and(z<=i and(rP(U.Name)>0 and((not B or V>((tonumber(B.Multiplier)or 0)))))))then B,Q=U,r end end if not B then return false,"nothing affordable in stock"end local z=iP(U)if z and((tonumber(B.Multiplier)or 0))<=z then return false,"every holder already has "..(a(z).."x or better")end local got,res,C=p.__withLock("pickaxe",function() local V=g() if V<(tonumber(B.Cost)or math.huge) then return "poor",0 end if not H("MineBuyPickaxe",Q) then return "fail",0 end task.wait(1.2) return "sent",V-g() end) --[[แก้ 6: จองล็อกเงินระหว่างซื้อ]] if not got then return false,"money lock busy" end if res=="poor" then return false,"nothing affordable in stock" end if res=="fail" then return false,"send failed" end if C<=0 then return false,"server refused "..tostring(B.Name)end H("MineEquipBest")task.wait(1.0)return true,(("bought %s (%sx) for %s")):format(tostring(B.Name),a(B.Multiplier),a(C))end function p.RollMutation()local r=h()if not r then return false,"no save data yet"end local U=L(b.Flags.mutation_target)if not U then return false,"pick a crew member first"end local i=b.Flags.mutation_wanted if type(i)~="table"or#i==0 then return false,"pick at least one mutation to stop on"end local function B()local r=h()return P(((((r or{})).Holders or{}))[U])end local function Q(r)if not r then return false end for U,i in ipairs(i)do if u(i)==r then return true end end return false end local function z()if b.Options.auto_mutation then b.Options.auto_mutation:Set(false)end end local V=B()if Q(V)then z()return false,("already "..tostring(V))end local C=((r.Holders or{}))[U]local e,x=pcall(D.GetMutationRollCost,N(C),r)x=e and tonumber(x)or nil if x and x>Y()then return false,(("roll costs %s, you have %s")):format(a(x),a(Y()))end if not H("MineRollMutation",U)then return false,"send failed"end task.wait(1.4)local l=B()if Q(l)then z()b:Notify((("Got %s on %s - stopping")):format(tostring(l),U),8)return true,(("rolled %s - stopping")):format(tostring(l))end return true,(("rolled %s")):format(tostring(l or D.DefaultVariant or"Normal"))end 
+function p.AdvanceZone()
+    local r=h() if not r or not D then return false,"no save data yet" end
+    local keys=D.ZoneKeys or {}
+    for idx=2,#keys do
+        local zk=keys[idx]
+        if not (r.UnlockedZones or {})[zk] then
+            local okG,gate=pcall(D.ZoneResearchGateFor,zk)
+            if not okG or not gate then break end
+            local okC,done=pcall(D.IsZoneResearchComplete,r.Skills,gate)
+            if okC and done then
+                -- [แก้ 4] ยิงปลดโซนเฉพาะตอนอ่านราคาได้และเงินพอ / อ่านราคาไม่ได้ (หรือเพิ่งโดนปฏิเสธ) = ห่างกันอย่างน้อย 45 วิ
+                local cost
+                if type(p.__zoneCost)=="function" then local okZ,v0=pcall(p.__zoneCost,zk) cost=okZ and tonumber(v0) or nil end
+                if cost and Y()<cost then return false,"saving money to unlock "..zk end
+                local now=os.clock()
+                if (not cost or p.__zoneRefused) and now-(p.__zoneTryAt or -1e9)<45 then return false,zk.." unlock: next try later" end
+                p.__zoneTryAt=now
+                -- [แก้ 6] จองล็อกเงินระหว่างยิง + เช็คผล
+                local got,ok=p.__withLock("zone",function()
+                    if cost and Y()<cost then return nil end
+                    H("MineSelectZone",zk) task.wait(1.5)
+                    r=h() or r
+                    return ((r.UnlockedZones or {})[zk]) and true or false
+                end)
+                if not got then return false,"money lock busy" end
+                if ok==nil then return false,"saving money to unlock "..zk end
+                if ok then p.__zoneRefused=false return true,"unlocked "..zk end
+                p.__zoneRefused=true
+                return false,zk.." refused by the server"
+            end
+            local okP,a1,a2=pcall(D.GetZoneResearchProgress,r.Skills,gate)
+            if okP then return false,("%s research %s/%s \226\128\148 max its skills first"):format(tostring(gate),tostring(a1),tostring(a2)) end
+            return false,"waiting on "..tostring(gate).." research"
+        end
+    end
+    local deepest
+    for _,zk in ipairs(keys) do if (r.UnlockedZones or {})[zk] then deepest=zk end end
+    if not deepest then return false,"no zones unlocked" end
+    if tostring(r.CurrentZone)==tostring(deepest:match("%d+")) then return false,"already in the deepest zone" end
+    -- [แก้ 4] ย้ายไปโซนลึกสุด ไม่ถี่กว่า 45 วิครั้ง (เท่ารอบเดิม)
+    if os.clock()-(p.__zoneTravelAt or -1e9)<45 then return false,"travel: next try later" end
+    p.__zoneTravelAt=os.clock()
+    local got,sent=p.__withLock("zone",function() return H("MineSelectZone",deepest) end)
+    if not got then return false,"money lock busy" end
+    return sent,sent and ("travelled to "..deepest) or "travel failed"
+end
+function p.RollEnchant()local r=h()if not r then return false,"no save data yet"end if D and type(D.EnchantsUnlocked)=="function"then local U,i=pcall(D.EnchantsUnlocked,r)if U and not i then return false,"enchants are not unlocked yet"end end local U=tonumber(r.EnchantDice)or 0 if U<=0 then return false,"no enchant dice"end local i=b.Flags.enchant_target if not i or i==""then return false,"pick an enchant first"end H("MineRollEnchant",i)task.wait(1.5)local B=tonumber(((h()or{})).EnchantDice)or U if B<U then return true,(("rolled %s (%d dice left)")):format(tostring(i),B)end return false,"server refused the roll"end local bP=.25 local BP=600 local function QP()local r=rawget(getfenv(),"fireclickdetector")or fireclickdetector return type(r)=="function"and r or nil end local function zP(r)local U,i=pcall(function()return(r:GetPivot()).Position end)if U and i then return i end local b=r.PrimaryPart or r:FindFirstChild("Rock")or r:FindFirstChildWhichIsA("BasePart",true)return b and b.Position or nil end local function VP()local r,U=T()local i={}for r,U in ipairs(r)do local b=U:GetAttribute("NodeHP")if b and(b>0 and(U:GetAttribute("NodeBroken")~=true and U:FindFirstChild("NodeClick")))then i[#i+1]=U end end table.sort(i,function(r,U)return((r:GetAttribute("NodeHP")or 0))<((U:GetAttribute("NodeHP")or 0))end)return i,U end function p.MineNodes()local r=QP()if not r then return false,"executor has no fireclickdetector"end if p.__busy then if os.clock()-((p.__busyAt or 0))<30 then return false,"paused while "..tostring(p.__busy)end p.__busy,p.__busyAt=nil,nil end local U,i=VP()if not i then return false,"plot not found"end if#U==0 then return false,"no nodes up"end local B=n()if not B then return false,"no character"end local Q=B.CFrame local z=b.Flags.mine_teleport~=false if z then p.__mineHome=Q end p.__mining=true --[[แก้ 7: กำลังขุด (ระบบขายจะรอ)]] local V=math.max(1,tonumber(b.Flags.mine_stall)or 4)local C,e,x,l=false,0,0,0 for U,i in ipairs(U)do if b.Unloaded or p.__busy then break end local B=zP(i)if B then if z then local r=n()if not r then break end r.CFrame=CFrame.new(B+Vector3.new(0,6,0))C=true task.wait(.12)end local U=0 local Q=i:GetAttribute("NodeHP")local K=os.clock()p.__mineTarget=(("%s (%s)")):format(i.Name,tostring(i:GetAttribute("NodeOre")or"?"))local j="broke"while not b.Unloaded do if i.Parent==nil then break end if p.__busy then j="stopped to sell"break end local b=i:GetAttribute("NodeHP")if not b or b<=0 or i:GetAttribute("NodeBroken")==true then break end local B=i:FindFirstChild("NodeClick")if not B then break end pcall(r,B)x+=1 U+=1 task.wait(bP)local z=(i.Parent and i:GetAttribute("NodeHP"))or 0 if Q and z<Q then K=os.clock()end Q=z if os.clock()-K>=V then j="stalled"l+=1 break elseif U>=BP then j="hit swing ceiling"l+=1 break end end local J=i.Parent and i:GetAttribute("NodeHP")if i.Parent==nil or not J or J<=0 then e+=1 end p.__mineLast=(("%s %s after %d swings")):format(i.Name,j,U)end end if C and b.Flags.mine_return~=false then local r=n()if r then r.CFrame=Q end end p.__mineHome=nil p.__mineTarget=nil p.__mining=false if x==0 then return false,"no nodes up"end local K=(("mined %d node%s in %d swings")):format(e,e==1 and""or"s",x)if l>0 then K=K..((", gave up on %d")):format(l)end return true,K end function p.MineGoHome()local r=p.__mineHome p.__mineHome=nil if not r or b.Flags.mine_return==false then return end local U=n()if U then U.CFrame=r end end local function eP(r,...)local U=p[r]if not U then return false,r..": unknown action"end local i,B=U(...)if not i then b:Notify(r..(": "..tostring(B)),5)end return i,B end -- [แก้ 13] ไม่เก็บข้อความ error ลงตารางแล้ว 
+
+-- ======================================================================
+-- CONFIG: ปรับตรงนี้ว่าเปิดอะไร ยังไง (true = เปิด, false = ปิด, ตัวเลข = วินาที / ค่า)
+-- ค่าทั้งหมดตามคอนฟิกที่ส่งมา (ยกเว้น auto_execute ปิด เพราะใช้ autoexec ของ Delta แทน)
+-- ======================================================================
+local CONFIG = {
+    -- ขุด
+    auto_mine = true,          -- ขุดหินในแปลงอัตโนมัติ
+    mine_interval = 2,         -- รอบขุดทุกกี่วิ
+    mine_stall = 4,            -- หินไม่ลดเลือดกี่วิ ให้ข้ามไปก้อนอื่น
+    mine_teleport = true,      -- วาร์ปไปที่หิน
+    mine_return = true,        -- ขุดเสร็จวาร์ปกลับที่เดิม
+    -- ขาย
+    auto_sell = true,          -- ขายแร่อัตโนมัติ
+    sell_interval = 30,        -- ขายทุกกี่วิ
+    sell_protect_gear = true,  -- ไม่ขายอีเตอร์ / สกินฐาน / ตัวละคร
+    sell_return = true,        -- ขายเสร็จวาร์ปกลับ
+    -- เก็บของ
+    auto_chest = true,  chest_interval = 45,    -- เก็บหีบ
+    auto_buff = true,                           -- รับบัฟ (ทุก 120 วิ)
+    auto_index = true,  index_interval = 120,   -- รับรางวัล Index
+    auto_events = true, events_interval = 180,  -- รับรางวัลอีเวนต์
+    -- อัพเกรด
+    auto_research = true,                       -- ซื้อวิจัย/สกิล (Density ก่อน แล้วอันที่ถูกสุด) แล้วค่อย Core (ทุก 5 วิ)
+    research_first = { "Density" },             -- โหนดวิจัยที่ซื้อก่อนอันดับแรก (Density = Node level) จากนั้นซื้ออันที่ถูกสุดตามปกติ
+                                                --   เงินไม่พอ = เก็บเงินรอ | {} = ถูกสุดอย่างเดียว
+                                                --   Density ติดพลังทีม = หยุดซื้อโหนดอื่น เอาเงินไปอัพตัว/Core/อีเตอร์เพิ่มพลังก่อน พลังถึงแล้วซื้อ Density ทันที
+                                                --   (อัพตัวไม่ได้ เช่น ไม่มีตัวผ่านกฎ / ตันเลเวล / ปิดอัพตัว / เกมไม่ให้อัพ → ซื้ออันถูกสุดไปก่อน และบอกเหตุผลบนจอ)
+    auto_pickaxe = true, pickaxe_interval = 30, -- ซื้ออีเตอร์ที่ดีกว่า
+    auto_zone = true,                           -- ปลดโซนถัดไปเมื่อวิจัยครบและเงินพอ (เช็คทุก 10 วิ)
+    -- ตัวละคร
+    auto_crew = true,                           -- อัพตัว: ทุกตัวบนแท่นที่ระดับ Mythical ขึ้นไป และเป็นตัวของโซนล่าสุดเท่านั้น
+                                                --   และอัพเฉพาะตอนสกิลทรีอัพต่อไม่ได้ (ยังซื้อสกิลได้ = เก็บเงินซื้อสกิลก่อน)
+    crew_wait_zone_unlock = true,               -- วิจัยครบแต่ยังไม่ปลดโซนถัดไป: เก็บเงินปลดโซนก่อนค่อยอัพตัว
+    crew_stats = { "Damage", "Speed", "MineSpeed" },
+    crew_min_rarity = "Mythical",               -- ระดับต่ำสุดที่อัพ (ต่ำกว่านี้ไม่อัพ ยกเว้นกฎสำรองด้านล่าง) ไม่จำกัดจำนวนตัว
+    crew_fallback_rarity = "Legendary",         -- กฎสำรอง: หลอดวิจัยโซนถึง crew_fallback_at แล้วยังไม่มีตัว Mythical+ ของโซนล่าสุดบนแท่น
+    crew_fallback_at = 0.5,                     --   → อัพ (และสุ่ม Mutation) ตัว Legendary ของโซนล่าสุดด้วย | 0.5 = 50%
+                                                --   เปิดแล้วอยู่ยาวจนปลดโซนถัดไป (ได้ Mythical ทีหลังก็ยังอัพ Legendary ต่อ) | crew_fallback_rarity = nil = ปิด
+    auto_equip = true,                          -- ใส่ตัว/อีเตอร์ที่ดีที่สุด (ทุก 60 วิ)
+    auto_crew_mutation = true,                  -- สุ่ม Mutation ให้ตัวที่อัพ (Mythical ขึ้นไป โซนล่าสุด) ตัวละครั้งเดียว ได้อะไรเก็บไว้
+                                                --   สุ่มเฉพาะตอนติดพลังทีม และไม่สุ่มทับตัวที่มี Mutation อยู่แล้ว
+    auto_mutation = false,                      -- สุ่ม Mutation แบบเดิม: สุ่มซ้ำช่องเดียวจนได้ตัวที่ต้องการ (ใช้เงิน)
+    mutation_target = "Perfected Instinct Lv16 [M1]", -- ช่องที่จะสุ่ม (ดู [M?])
+    mutation_wanted = {},                       -- หยุดเมื่อได้ (เช่น {"Golden"})
+    auto_enchant = false,                       -- สุ่ม Enchant (ใช้ลูกเต๋า)
+    enchant_target = nil,                       -- ชื่อ Enchant ที่จะสุ่ม
+    -- โพชั่น
+    auto_potion = true,                         -- ใช้โพชั่นบัฟฟาร์มอัตโนมัติตอนบัฟหมด (เช็คทุก 10 วิ) ทีละ 1 ขวด
+    potion_families = { "Haste", "OreOutput", "Regrowth", "Unearth", "CharLuck" },
+                                                --   Haste = Haste Potion | OreOutput = Ore Elixir | Regrowth = Regrowth Potion
+                                                --   Unearth = Unearth Elixir | CharLuck = Character Luck Potion
+                                                --   (ไม่ใช้: MutLuck = Mutation Luck, Diamondbound Charm, Miner's Hourglass)
+    potion_margin = 5,                          -- บัฟเหลือไม่เกินกี่วิ ถึงจะกดขวดใหม่
+    -- ผู้เล่น
+    speed_enabled = false, walk_speed = 16,     -- วิ่งเร็ว
+    jump_enabled = false, jump_power = 50,      -- กระโดดสูง
+    inf_jump = false,                           -- กระโดดกลางอากาศได้
+    anti_afk = true,                            -- กันโดนเตะ 20 นาที
+    -- ภาพ
+    node_esp = false, esp_hp = true, esp_ore = true, -- ป้ายบนหิน
+    esp_colour = { 0.13333332538604737, 0.8274510502815247, 0.9333333373069763 },
+    fullbright = false,                         -- สว่างทั้งแมพ
+    camera_fov = 70,                            -- มุมกล้อง
+    -- ระบบ
+    hop_mode = "Lowest Players",                -- getgenv().MAMHub.Hop() ย้ายเซิร์ฟ: "Lowest Players" / "Lowest Ping"
+    code_input = "",                            -- ใส่โค้ดตอนเปิดสคริปต์ (ว่าง = ไม่ใส่)
+    redeem_all_codes = false,                   -- ใส่โค้ดในรายการทั้งหมดตอนเปิด
+    auto_execute = false,                       -- ปิด: ใช้โฟลเดอร์ autoexec ของ Delta แทน
+    -- หน้าจอเกม
+    hide_game_popups = true,                    -- ซ่อนแจ้งเตือนเด้งของเกม (เช่น "Walk up to the item buyer...", "Chest is empty.")
+    hide_popup_texts = { "Added!", "Sold!" },   -- ซ่อนป้ายตัวหนังสือในหน้าจอเกมที่มีคำเหล่านี้ด้วย (เพิ่ม/ลบได้)
+}
+for k0, v0 in pairs(CONFIG) do b.Flags[k0] = v0 end
+
+-- รันซ้ำแล้วปิดตัวเก่าก่อน
+local G0 = (getgenv and getgenv()) or _G
+if type(G0.MAMHub) == "table" and type(G0.MAMHub.Unload) == "function" then pcall(G0.MAMHub.Unload) end
+G0.MAMHub = { Unload = function() b:Unload() end, Flags = b.Flags }
+
+
+-- ===== สุ่ม Mutation ให้ตัวที่อัพ (ตอนติดพลังทีมเท่านั้น, ตัวละครั้งเดียว) =====
+-- [แก้ 5] อ่าน mutation แบบรู้ผล: "none" = เป็นค่าเริ่มต้นแน่ๆ (สุ่มได้) / "has" = มีแล้ว / "unknown" = อ่านไม่ได้ (ห้ามสุ่ม)
+p.__variantState = function(hd)
+    if type(hd) ~= "table" or not D or type(D.GetHolderVariant) ~= "function" then return "unknown" end
+    local dv = D.DefaultVariant
+    if dv == nil then return "unknown" end
+    local ok, v0 = pcall(D.GetHolderVariant, hd)
+    if not ok or type(v0) ~= "string" then return "unknown" end
+    if v0 == dv then return "none" end
+    return "has", v0
+end
+p.__mutRolled = {}
+function p.CrewMutation()
+    local br = p.__brain()
+    if br.mode ~= "power" then return false, "not power-blocked" end
+    if not D or type(D.GetMutationRollCost) ~= "function" then return false, "mutation config unavailable" end
+    local keys = p.__crewAllowed(A())
+    local rolled, lockBusy = 0, false
+    for _, key in ipairs(keys) do
+        if b.Unloaded then break end
+        local r = h()
+        local hd = r and (r.Holders or {})[key]
+        if type(hd) == "table" and hd.CharName then
+            local tag = key .. ":" .. tostring(hd.CharName)
+            if not p.__mutRolled[tag] and p.__variantState(hd) == "none" then
+                local okC, cost = pcall(D.GetMutationRollCost, N(hd), r)
+                cost = okC and tonumber(cost) or nil
+                if cost and cost <= Y() then
+                    -- [แก้ 6] ถือล็อกเงินตั้งแต่ก่อนยิงจนเช็คผลเสร็จ → เงินที่ลดระหว่างนั้นคือค่าสุ่มจริง
+                    local got, res = p.__withLock("mutation", function()
+                        local r1 = h()
+                        local cur = r1 and (r1.Holders or {})[key]
+                        if type(cur) ~= "table" or tostring(cur.CharName) ~= tostring(hd.CharName) or p.__variantState(cur) ~= "none" then return "skip" end
+                        local before = Y()
+                        if before < cost then return "skip" end
+                        if not H("MineRollMutation", key) then return "fail" end
+                        task.wait(1.4)
+                        local r2 = h()
+                        local after = r2 and (r2.Holders or {})[key]
+                        if p.__variantState(after) == "has" or Y() < before then return "rolled" end
+                        return "fail"
+                    end)
+                    if not got then lockBusy = true break end
+                    if res == "rolled" then p.__mutRolled[tag] = true rolled = rolled + 1 end
+                end
+            end
+        end
+    end
+    if rolled > 0 then return true, ("rolled mutation on %d crew"):format(rolled) end
+    if lockBusy then return false, "money lock busy" end
+    return false, "nothing to roll"
+end
+
+-- [แก้ 7] ระบบขุดจบแบบ error ก็ต้องปล่อยสถานะ "กำลังขุด" (ไม่ให้ระบบขายรอเปล่า)
+do
+    local rawMine = p.MineNodes
+    p.MineNodes = function(...)
+        local res = table.pack(pcall(rawMine, ...))
+        p.__mining = false
+        if not res[1] then error(res[2], 0) end
+        return table.unpack(res, 2, res.n)
+    end
+end
+
+-- [แก้ v20] ออโต้โพชั่น (บัฟฟาร์ม): ใช้โพชั่นแบบมีเวลา (Kind = "Timed") ของกลุ่มใน CONFIG.potion_families ตอนบัฟหมด
+--   คำสั่งเดียวกับปุ่ม "Use" ในหน้าต่างใช้น้ำยาของเกม: SendEvent("MineUsePotion", ชื่อโพชั่น, จำนวน)
+--   บัฟที่ทำงานอยู่: MineGame.Boosts[Family].Until (เวลาเซิร์ฟ) | กลุ่มเดียวกันมีหลายแบบ → ใช้ตัวแรงสุดก่อน (Mult/Add)
+--   ยิงแล้วเช็คผล: ขวดลด หรือเวลาบัฟเพิ่ม = สำเร็จ | เกมไม่รับ 2 ครั้งติด = พักโพชั่นนั้น 5 นาที (กันยิงรัว)
+p.__potDefs=function()
+    if p.__potCat then return p.__potCat end
+    local cat={}
+    pcall(function()
+        local PC=require(game:GetService("ReplicatedStorage").Modules.MinePotionCatalog)
+        for _,e in pairs(PC.Potions or {}) do if type(e)=="table" and type(e.ItemName)=="string" then cat[e.ItemName]=e end end
+    end)
+    if next(cat) then p.__potCat=cat end
+    return cat
+end
+p.__potDef=function(name)
+    local d=p.__potDefs()[name]
+    if not d and D and type(D.GetPotionDef)=="function" then local ok,v=pcall(D.GetPotionDef,name) if ok and type(v)=="table" then d=v end end
+    return d
+end
+p.__potNow=function()
+    local ok,t=pcall(function() return workspace:GetServerTimeNow() end)
+    return (ok and tonumber(t)) or os.time()
+end
+-- วินาทีที่บัฟของกลุ่มนี้เหลือ (0 = ไม่มี/หมดแล้ว)
+p.__potLeft=function(r0,fam)
+    local bo=type(r0)=="table" and type(r0.Boosts)=="table" and r0.Boosts[fam]
+    local u=type(bo)=="table" and tonumber(bo.Until) or nil
+    if not u then return 0 end
+    return math.max(0,u-p.__potNow())
+end
+function p.UsePotions()
+    local r0=h()
+    if not r0 then return false,"no save data yet" end
+    local fams=b.Flags.potion_families
+    if type(fams)~="table" or #fams==0 then return false,"no potion families picked" end
+    local margin=tonumber(b.Flags.potion_margin) or 5
+    p.__potBan=p.__potBan or {}
+    local used,notes=0,{}
+    local names={}
+    for _,fam in ipairs(fams) do
+        local owned=type(r0.Potions)=="table" and r0.Potions or {}
+        if p.__potLeft(r0,fam)<=margin then
+            local best,bestPow
+            for nm,cnt in pairs(owned) do
+                local d=(tonumber(cnt) or 0)>0 and p.__potDef(nm) or nil
+                local ban=p.__potBan[nm]
+                if type(d)=="table" and d.Family==fam and d.Kind=="Timed" and not (ban and os.clock()<ban.untilAt) then
+                    local pw=tonumber(d.Mult) or tonumber(d.Add) or 0
+                    if not best or pw>bestPow or (pw==bestPow and tostring(nm)<tostring(best)) then best,bestPow=nm,pw end
+                end
+            end
+            if best then
+                local c0,u0=tonumber(owned[best]) or 0,p.__potLeft(r0,fam)
+                if H("MineUsePotion",best,1) then
+                    -- รอผลจากเซิร์ฟสูงสุด ~3 วิ (เน็ตแลคก็ไม่นับเป็นเกมไม่รับ)
+                    local r1,okUse=r0,false
+                    for _=1,10 do
+                        task.wait(0.3)
+                        r1=h() or r1
+                        local c1=tonumber((type(r1.Potions)=="table" and r1.Potions or {})[best]) or 0
+                        if c1<c0 or p.__potLeft(r1,fam)>u0+1 then okUse=true break end
+                    end
+                    if okUse then
+                        used=used+1 names[#names+1]=tostring(best)
+                        p.__potBan[best]=nil
+                    else
+                        local ban=p.__potBan[best] or {fails=0,untilAt=0}
+                        ban.fails=ban.fails+1
+                        if ban.fails>=2 then ban.fails,ban.untilAt=0,os.clock()+300 end
+                        p.__potBan[best]=ban
+                        notes[#notes+1]="server refused "..tostring(best)
+                    end
+                    r0=r1
+                else
+                    notes[#notes+1]="send failed"
+                end
+            end
+        end
+    end
+    if used>0 then return true,"used "..table.concat(names,", ") end
+    if #notes>0 then return false,table.concat(notes,"; ") end
+    return false,"buffs still running or no potions left"
+end
+-- สรุปให้ HUD: กลุ่มที่บัฟทำงาน / ทั้งหมด + โพชั่นที่เกมไม่รับ (กำลังพัก)
+p.__potStatus=function(r0)
+    local fams=b.Flags.potion_families
+    if type(fams)~="table" or #fams==0 then return 0,0,nil end
+    local on=0
+    for _,fam in ipairs(fams) do if p.__potLeft(r0,fam)>0 then on=on+1 end end
+    local banned
+    for nm,ban in pairs(p.__potBan or {}) do if os.clock()<ban.untilAt then banned=tostring(nm) break end end
+    return on,#fams,banned
+end
+
+-- ===== ระบบออโต้ =====
+do
+    local LOOPS = {
+        { "auto_mine", "MineNodes", "mine_interval", 1.5 }, { "auto_sell", "Sell", "sell_interval", 30 },
+        { "auto_chest", "CollectChest", "chest_interval", 45 }, { "auto_buff", "BuffMode", nil, 120 },
+        { "auto_index", "CollectIndex", "index_interval", 120 }, { "auto_events", "CollectEvents", "events_interval", 180 },
+        { "auto_research", "BuyUpgrades", nil, 5 }, { "auto_pickaxe", "BuyBestPickaxe", "pickaxe_interval", 30 },
+        { "auto_zone", "AdvanceZone", nil, 10 }, { "auto_enchant", "RollEnchant", nil, 8 },
+        { "auto_crew", "UpgradeCrew", nil, 25 }, { "auto_crew_mutation", "CrewMutation", nil, 25 },
+        { "auto_equip", "EquipBest", nil, 60 },
+        { "auto_mutation", "RollMutation", nil, 3 },
+        { "auto_potion", "UsePotions", nil, 10 },      -- [แก้ v20] ออโต้โพชั่น เช็คทุก 10 วิ
+    }
+    -- [แก้ 11] สร้างทุกลูป แล้วเช็คสวิตช์ทุกรอบ (เปิด/ปิดผ่าน getgenv().MAMHub.Flags ตอนรันได้ ค่าเริ่มต้นตาม CONFIG)
+    for _, L0 in ipairs(LOOPS) do
+        b.__threads[#b.__threads + 1] = task.spawn(function()
+            while not b.Unloaded do
+                if b.Flags[L0[1]] then pcall(eP, L0[2]) end
+                task.wait(tonumber(L0[3] and b.Flags[L0[3]]) or L0[4])
+            end
+        end)
+    end
+end
+
+-- ===== ผู้เล่น =====
+b.__conns[#b.__conns + 1] = Q.RenderStepped:Connect(function()
+    if b.Unloaded then return end
+    local hum = j()
+    if not hum then return end
+    if b.Flags.speed_enabled then hum.WalkSpeed = b.Flags.walk_speed or 16 end
+    if b.Flags.jump_enabled then hum.JumpPower = b.Flags.jump_power or 50 end
+end)
+b.__conns[#b.__conns + 1] = z.JumpRequest:Connect(function()
+    if b.Unloaded or not b.Flags.inf_jump then return end
+    local hum = j()
+    if hum then hum:ChangeState(Enum.HumanoidStateType.Jumping) end
+end)
+if b.Flags.anti_afk then
+    b.__conns[#b.__conns + 1] = K.Idled:Connect(function()
+        if b.Unloaded then return end
+        local cam = workspace.CurrentCamera
+        pcall(function() x:Button2Down(Vector2.new(0, 0), cam.CFrame) task.wait(1) x:Button2Up(Vector2.new(0, 0), cam.CFrame) end)
+    end)
+    b.__threads[#b.__threads + 1] = task.spawn(function()
+        while not b.Unloaded do
+            task.wait(240)
+            if b.Unloaded then break end
+            local cam = workspace.CurrentCamera
+            pcall(function() x:Button2Down(Vector2.new(0, 0), cam.CFrame) task.wait(.2) x:Button2Up(Vector2.new(0, 0), cam.CFrame) end)
+        end
+    end)
+end
+
+-- ===== ภาพ =====
+if b.Flags.fullbright then
+    pcall(function() C.Brightness = 4 C.ClockTime = 14 C.FogEnd = 1000000 C.Ambient = Color3.fromRGB(150, 150, 150) end)
+end
+if tonumber(b.Flags.camera_fov) and b.Flags.camera_fov ~= 70 then
+    pcall(function() workspace.CurrentCamera.FieldOfView = b.Flags.camera_fov end)
+end
+
+-- ===== ระบบ: ย้ายเซิร์ฟ / โค้ด =====
+local function serverList()
+    local list, cursor = {}, ""
+    for _ = 1, 4 do
+        local url = ("https://games.roblox.com/v1/games/%d/servers/Public?sortOrder=Asc&limit=100"):format(game.PlaceId)
+        if cursor ~= "" then url = url .. "&cursor=" .. cursor end
+        local ok, body = pcall(function() return game:HttpGet(url) end)
+        if not ok then break end
+        local ok2, data = pcall(function() return V:JSONDecode(body) end)
+        if not ok2 or type(data) ~= "table" or not data.data then break end
+        for _, s0 in ipairs(data.data) do
+            if s0.id ~= game.JobId and s0.playing and s0.maxPlayers and s0.playing < s0.maxPlayers then list[#list + 1] = s0 end
+        end
+        cursor = data.nextPageCursor or ""
+        if cursor == "" then break end
+    end
+    return list
+end
+G0.MAMHub.Hop = function()
+    task.spawn(function()
+        local list = serverList()
+        if #list == 0 then return end
+        if b.Flags.hop_mode == "Lowest Ping" then table.sort(list, function(a1, a2) return (a1.ping or 9999) < (a2.ping or 9999) end)
+        else table.sort(list, function(a1, a2) return a1.playing < a2.playing end) end
+        pcall(function() e:TeleportToPlaceInstance(game.PlaceId, list[1].id, K) end)
+    end)
+end
+if type(b.Flags.code_input) == "string" and b.Flags.code_input ~= "" then task.spawn(function() pcall(eP, "UseCode", b.Flags.code_input) end) end
+if b.Flags.redeem_all_codes then task.spawn(function() pcall(eP, "RedeemAll") end) end
+
+-- ===== ซ่อนแจ้งเตือน/ป้ายเด้งของเกม (ซ่อนอย่างเดียว ไม่ลบ — ระบบใส่โค้ดยังอ่านผลได้) =====
+if b.Flags.hide_game_popups then
+    local hidden = setmetatable({}, { __mode = "k" }) -- [แก้ 9] weak key: ป้ายที่เกมลบแล้วไม่ค้างในหน่วยความจำ
+    local function hide(o)
+        if o and not hidden[o] then
+            local ok, vis = pcall(function() return o.Visible end)
+            if ok and vis ~= false then hidden[o] = true pcall(function() o.Visible = false end) end
+        end
+    end
+    local words = {}
+    for _, w in ipairs(b.Flags.hide_popup_texts or {}) do if type(w) == "string" and w ~= "" then words[#words + 1] = w:lower() end end
+    local function matches(txt)
+        if type(txt) ~= "string" or txt == "" then return false end
+        local lt = txt:lower()
+        for _, w in ipairs(words) do if lt:find(w, 1, true) then return true end end
+        return false
+    end
+    local function onlyChild(par, child)
+        local n = 0
+        for _, c in ipairs(par:GetChildren()) do
+            local okG, isG = pcall(function() return c:IsA("GuiObject") end)
+            if okG and isG then n = n + 1 if c ~= child then return false end end
+        end
+        return n == 1
+    end
+    local function check(o)
+        local okT, isT = pcall(function() return o:IsA("TextLabel") or o:IsA("TextButton") end)
+        if not (okT and isT) then return end
+        local okX, txt = pcall(function() return o.Text end)
+        if not (okX and matches(txt)) then return end
+        hide(o)
+        -- ป้ายที่มีแต่ตัวหนังสือนี้อย่างเดียว (เช่น แถบ "Added!") ซ่อนกรอบด้วย
+        local par = o.Parent
+        local okS, sz = pcall(function() return par.AbsoluteSize end)
+        local okG, isG = pcall(function() return par:IsA("GuiObject") end)
+        if okG and isG and onlyChild(par, o) and okS and sz and sz.Y <= 50 then hide(par) end
+    end
+    local pg = K:FindFirstChild("PlayerGui")
+    local function notifFrame()
+        local sg0 = pg and pg:FindFirstChild("ScreenGui")
+        return sg0 and sg0:FindFirstChild("Notifications")
+    end
+    if pg then
+        for _, d in ipairs(pg:GetDescendants()) do pcall(check, d) end
+        b.__conns[#b.__conns + 1] = pg.DescendantAdded:Connect(function(d)
+            if b.Unloaded then return end
+            -- [แก้ 10] สนใจแค่ป้ายตัวหนังสือ ชิ้นอื่นไม่ต้องตั้งงานเช็ค
+            local okT, isT = pcall(function() return d:IsA("TextLabel") or d:IsA("TextButton") end)
+            if not (okT and isT) then return end
+            task.delay(0.05, function() if not b.Unloaded then pcall(check, d) end end)
+        end)
+    end
+    b.__threads[#b.__threads + 1] = task.spawn(function()
+        while not b.Unloaded do
+            local nf = notifFrame()
+            if nf then
+                local ok, vis = pcall(function() return nf.Visible end)
+                if ok and vis ~= false then hidden[nf] = true pcall(function() nf.Visible = false end) end
+            end
+            task.wait(1)
+        end
+    end)
+    local oldUnload = b.Unload
+    b.Unload = function(self)
+        for o in pairs(hidden) do pcall(function() o.Visible = true end) end
+        hidden = {}
+        return oldUnload(self)
+    end
+end
+
+-- ===== HUD ใหม่ (ตามหน้า HTML): ตัวหนังสือลอยกลางจอ ไม่มีปุ่ม ขนาดปรับเองตามจอ =====
+do
+    local NAVY = Color3.fromRGB(27, 33, 64)
+    local SUF = { "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc", "Ud", "Dd", "Td", "Qad", "Qid", "Sxd", "Spd", "Ocd", "Nod", "Vg" }
+    local function big(n)
+        n = tonumber(n) or 0
+        if n ~= n then return "0" end
+        local neg = n < 0
+        n = math.abs(n)
+        local s
+        if n < 1e6 then
+            s = tostring(math.floor(n)):reverse():gsub("(%d%d%d)", "%1,"):reverse():gsub("^,", "")
+        else
+            local i0 = math.min(#SUF, math.floor(math.log(n, 10) / 3 + 1e-9))
+            s = string.format("%.2f", n / 10 ^ (i0 * 3)) .. SUF[i0]
+        end
+        return (neg and "-" or "") .. s
+    end
+    local function parseCash(txt)
+        if type(txt) ~= "string" then return nil end
+        local num, suf = txt:match("%$%s*([%d%.,]+)%s*(%a*)")
+        if not num then return nil end
+        local v = tonumber((num:gsub(",", "")))
+        if not v then return nil end
+        if suf == "" then return v end
+        for i0, s0 in ipairs(SUF) do if s0 == suf then return v * 10 ^ (i0 * 3) end end
+        return nil
+    end
+    local function mmss(sec)
+        if not sec or sec ~= sec or sec == math.huge then return "--:--" end
+        sec = math.max(0, math.ceil(sec))
+        if sec > 359999 then return "99:59:59+" end
+        local h0, m0, s0 = math.floor(sec / 3600), math.floor(sec % 3600 / 60), sec % 60
+        if h0 > 0 then return string.format("%d:%02d:%02d", h0, m0, s0) end
+        return string.format("%02d:%02d", m0, s0)
+    end
+    local function rateTxt(r0)
+        if r0 >= 1000 then return "+" .. big(r0) .. "/s" end
+        local d = r0 >= 10 and 1 or (r0 >= 1 and 2 or 3)
+        local s1 = string.format("%." .. d .. "f", r0):gsub("%.?0+$", "")
+        return "+" .. s1 .. "/s"
+    end
+    G0.MAMHub._big, G0.MAMHub._parseCash, G0.MAMHub._mmss, G0.MAMHub._rate = big, parseCash, mmss, rateTxt
+    local function col(hex, s) return '<font color="#' .. hex .. '">' .. s .. '</font>' end
+    local function esc(s) return (tostring(s):gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")) end
+
+    local root = (gethui and gethui()) or game:GetService("CoreGui")
+    local old = root:FindFirstChild("MAM_HUD")
+    if old then old:Destroy() end
+    local sg = Instance.new("ScreenGui")
+    sg.Name = "MAM_HUD" sg.ResetOnSpawn = false sg.IgnoreGuiInset = true sg.DisplayOrder = 40
+    sg.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    b.__hud = sg
+    local uiScale = Instance.new("UIScale") uiScale.Parent = sg
+    local function lbl(parent, name, size, font, order)
+        local t0 = Instance.new("TextLabel")
+        t0.Name = name t0.BackgroundTransparency = 1 t0.RichText = true t0.TextWrapped = true
+        t0.Font = font or Enum.Font.GothamBold t0.TextSize = size t0.LineHeight = 1.15
+        t0.TextColor3 = Color3.new(1, 1, 1) t0.TextStrokeColor3 = NAVY t0.TextStrokeTransparency = 0
+        t0.AutomaticSize = Enum.AutomaticSize.Y t0.Size = UDim2.new(1, 0, 0, size)
+        t0.Text = "" t0.LayoutOrder = order or 0
+        t0.Parent = parent
+        return t0
+    end
+    local box = Instance.new("Frame")
+    box.Name = "Center" box.BackgroundTransparency = 1 box.AnchorPoint = Vector2.new(.5, .5) box.Position = UDim2.fromScale(.5, .46)
+    box.AutomaticSize = Enum.AutomaticSize.Y box.Size = UDim2.new(1, -32, 0, 0) box.Parent = sg
+    local lay = Instance.new("UIListLayout")
+    lay.HorizontalAlignment = Enum.HorizontalAlignment.Center lay.Padding = UDim.new(0, 3) lay.SortOrder = Enum.SortOrder.LayoutOrder lay.Parent = box
+    local zoneL = lbl(box, "Zone", 30, Enum.Font.FredokaOne, 1)
+    local barBg = Instance.new("Frame")
+    barBg.Name = "ZoneBar" barBg.LayoutOrder = 2 barBg.Size = UDim2.new(0, 280, 0, 14)
+    barBg.BackgroundColor3 = NAVY barBg.BackgroundTransparency = .35 barBg.Parent = box
+    local cr1 = Instance.new("UICorner") cr1.CornerRadius = UDim.new(1, 0) cr1.Parent = barBg
+    local st1 = Instance.new("UIStroke") st1.Thickness = 3 st1.Color = NAVY st1.Parent = barBg
+    local fill = Instance.new("Frame")
+    fill.Name = "Fill" fill.BackgroundColor3 = Color3.fromRGB(47, 208, 90) fill.Size = UDim2.fromScale(0, 1) fill.Parent = barBg
+    local cr2 = Instance.new("UICorner") cr2.CornerRadius = UDim.new(1, 0) cr2.Parent = fill
+    local headL = lbl(box, "Head", 21, nil, 3)
+    local line2 = lbl(box, "Line2", 16, nil, 4)
+    local line3 = lbl(box, "Line3", 16, nil, 5)
+    local secNeed = lbl(box, "SecNeed", 17, nil, 6) secNeed.Text = "— ของที่ต้องรอ —"
+    local needL = lbl(box, "Need", 16, nil, 7)
+    local secItems = lbl(box, "SecItems", 17, nil, 8) secItems.Text = "— ไอเท็ม —"
+    local itemsL = lbl(box, "Items", 15, nil, 9)
+
+    local moneyRow = Instance.new("Frame")
+    moneyRow.Name = "MoneyRow" moneyRow.BackgroundTransparency = 1 moneyRow.AnchorPoint = Vector2.new(0, 1)
+    moneyRow.Position = UDim2.new(0, 16, 1, -14) moneyRow.Size = UDim2.new(0, 0, 0, 40) moneyRow.AutomaticSize = Enum.AutomaticSize.X moneyRow.Parent = sg
+    local mlay = Instance.new("UIListLayout") mlay.FillDirection = Enum.FillDirection.Horizontal mlay.VerticalAlignment = Enum.VerticalAlignment.Center mlay.Padding = UDim.new(0, 8) mlay.Parent = moneyRow
+    local coin = Instance.new("TextLabel")
+    coin.Name = "Coin" coin.Size = UDim2.new(0, 36, 0, 36) coin.BackgroundColor3 = Color3.fromRGB(255, 210, 63) coin.Text = "$"
+    coin.Font = Enum.Font.FredokaOne coin.TextSize = 20 coin.TextColor3 = Color3.new(1, 1, 1) coin.TextStrokeColor3 = NAVY coin.TextStrokeTransparency = 0 coin.Parent = moneyRow
+    local cr3 = Instance.new("UICorner") cr3.CornerRadius = UDim.new(1, 0) cr3.Parent = coin
+    local st3 = Instance.new("UIStroke") st3.Thickness = 3 st3.Color = NAVY st3.ApplyStrokeMode = Enum.ApplyStrokeMode.Border st3.Parent = coin
+    local moneyL = lbl(moneyRow, "Money", 34, Enum.Font.FredokaOne, 2)
+    moneyL.AutomaticSize = Enum.AutomaticSize.XY moneyL.Size = UDim2.new(0, 0, 0, 36) moneyL.TextWrapped = false
+    local etaL = lbl(sg, "Next", 22, Enum.Font.FredokaOne)
+    etaL.AutomaticSize = Enum.AutomaticSize.XY etaL.Size = UDim2.new(0, 0, 0, 30) etaL.TextWrapped = false
+    etaL.AnchorPoint = Vector2.new(1, 1) etaL.Position = UDim2.new(1, -16, 1, -16) etaL.TextXAlignment = Enum.TextXAlignment.Right
+    sg.Parent = root
+
+    local function fit()
+        local cam = workspace.CurrentCamera
+        local v = (cam and cam.ViewportSize) or Vector2.new(1280, 720)
+        local s = math.clamp(math.min(v.X / 900, v.Y / 600), .55, 1.4)
+        uiScale.Scale = s
+        box.Size = UDim2.new(0, math.min(760, math.max(200, v.X / s - 32)), 0, 0)
+    end
+    fit()
+    pcall(function() b.__conns[#b.__conns + 1] = workspace.CurrentCamera:GetPropertyChangedSignal("ViewportSize"):Connect(fit) end)
+
+    -- ประวัติ (คิดอัตรา/วิ)
+    local hist = { money = {}, ores = {} }
+    local function pushHist(list, v)
+        local now = os.clock()
+        list[#list + 1] = { now, v }
+        while #list > 0 and now - list[1][1] > 60 do table.remove(list, 1) end
+    end
+    local function incRate(list) -- ขาขึ้นเท่านั้น (ไม่นับตอนใช้เงิน/ขายแร่)
+        if #list < 2 then return 0 end
+        local gain = 0
+        for i0 = 2, #list do local d0 = list[i0][2] - list[i0 - 1][2] if d0 > 0 then gain = gain + d0 end end
+        local span = list[#list][1] - list[1][1]
+        return span > 0 and gain / span or 0
+    end
+    local baseLv, bought, waitKey, waitStart = nil, 0, nil, os.clock()
+
+    local function zoneCost(nk)
+        local n0 = tonumber(tostring(nk):match("%d+"))
+        local plot = t()
+        local row = plot and plot:FindFirstChild("ZoneBoard", true)
+        row = row and row:FindFirstChild("ZoneRow" .. tostring(n0), true)
+        local lb = row and row:FindFirstChild("Label", true)
+        return lb and parseCash(lb.Text) or nil
+    end
+    p.__zoneCost = zoneCost
+    local function totalLevels(r)
+        local s0 = 0
+        for _, fams in pairs(r.Skills or {}) do if type(fams) == "table" then for _, lv in pairs(fams) do s0 = s0 + (tonumber(lv) or 0) end end end
+        return s0
+    end
+
+    -- [แก้ 8] สถานะอัพตัวจากผลจริงของ UpgradeCrew (ไม่ใช่ดูแค่โหมด)
+    local function crewWhyTh(w)
+        w = tostring(w or "")
+        local rn0, z0 = w:match("^no (%S+)%+ from (%S+) in your crew")
+        if z0 then
+            local fbn, fbp = w:match("%((%a+) from (%d+)%%%)")
+            return "ไม่มีตัว " .. esc(rn0) .. " ขึ้นไปของ " .. esc(z0) .. " ในทีม" .. (fbn and (" · วิจัยถึง " .. fbp .. "% จะอัพ " .. esc(fbn)) or "")
+        end
+        if w:find("cannot read rarity order", 1, true) then return "อ่านลำดับระดับตัวไม่ได้" end
+        z0 = w:match("^cannot read (%S+) character pool")
+        if z0 then return "อ่านรายชื่อตัวของ " .. esc(z0) .. " ไม่ได้" end
+        if w:find("cannot read zones", 1, true) then return "อ่านโซนไม่ได้" end
+        if w:find("cannot read crew rarity", 1, true) then return "อ่านระดับตัวไม่ได้" end
+        if w:find("saving money for skill tree", 1, true) then return "เก็บเงินซื้อสกิลก่อน" end
+        z0 = w:match("^saving money to unlock (%S+)")
+        if z0 then return "เก็บเงินปลด " .. esc(z0) end
+        if w:find("waiting for game data", 1, true) then return "รอข้อมูลเกม" end
+        if w:find("game modules not ready", 1, true) then return "รอโมดูลเกม" end
+        if w:find("no crew slots", 1, true) then return "ยังไม่มีตัวในทีม" end
+        if w:find("server refused", 1, true) then return "เกมไม่ให้อัพ" end
+        if w:find("nothing affordable", 1, true) then return "เงินไม่พอ" end
+        if w:find("money lock busy", 1, true) then return "รอคิวใช้เงิน" end
+        if w:find("auto_crew off", 1, true) then return "ปิดอัพตัวอยู่" end
+        if w:find("crew capped", 1, true) then return "ตัวที่อัพได้ตันเลเวลหมด" end
+        if w:find("^bought") then return "รอบถัดไป" end
+        return esc(w)
+    end
+    local function crewStatus(mode, target, crewOn)
+        if not b.Flags.auto_crew then return false, "ปิดอยู่", "CDD5E0" end
+        if not crewOn then
+            local w = (mode == "zone" and target and ("เก็บเงินปลด " .. esc(target.zone))) or (mode == "nodata" and "รอข้อมูลเกม") or "เก็บเงินซื้อสกิลก่อน"
+            return false, w, "CDD5E0"
+        end
+        if p.__crewOkAt and os.clock() - p.__crewOkAt <= 60 then return true, nil, "6DFF7A" end
+        local cl = p.__crewLast
+        if not cl or cl.busy then return false, "รอบถัดไป", "CDD5E0" end
+        return false, crewWhyTh(cl.why), "FFA53A"
+    end
+
+    local function refresh()
+        local r = h()
+        local money = Y()
+        pushHist(hist.money, money)
+        if not r or not D then headL.Text = col("FFE14D", "[ My Anime Mine ]") .. " รอข้อมูลเกม…" return end
+        -- โซน
+        local zk, nk = "?", nil
+        for _, z0 in ipairs(D.ZoneKeys or {}) do if (r.UnlockedZones or {})[z0] then zk = z0 elseif not nk then nk = z0 end end
+        local gate, pct
+        if nk then
+            local okG, g0 = pcall(D.ZoneResearchGateFor, nk)
+            gate = okG and g0 or nil
+            local okP, a1, a2 = pcall(D.GetZoneResearchProgress, r.Skills, gate)
+            a1, a2 = tonumber(a1), tonumber(a2)
+            if okP and a1 and a2 and a2 > 0 then pct = math.clamp(a1 / a2, 0, 1) end
+            zoneL.Text = "โซน " .. col("FFE14D", zk) .. (pct and (" · อีก " .. col("FFA53A", string.format("%.1f%%", (1 - pct) * 100)) .. " ไป " .. nk) or (" · ไป " .. nk))
+        else
+            zoneL.Text = "โซน " .. col("FFE14D", zk) .. " · " .. col("6DFF7A", "โซนสุดท้ายแล้ว")
+        end
+        fill.Size = UDim2.fromScale(pct or (nk and 0 or 1), 1)
+        -- สถิติวิจัยของโซนที่กั้นอยู่ (คิว / ล็อก / เลเวลรวม)
+        local tzone = gate or zk
+        local sk = (r.Skills or {})[tzone] or {}
+        local fams, queue, locked = {}, 0, 0
+        local okN, nodes = pcall(D.GetSkillNodes, tzone)
+        for _, nd in ipairs((okN and type(nodes) == "table" and nodes) or {}) do
+            local lv = tonumber(sk[nd.Family]) or 0
+            local okX, mx = pcall(D.GetSkillMax, tzone, nd.Family)
+            fams[nd.Family] = { lv = lv, max = (okX and tonumber(mx)) or 0 }
+            local okM, isMax = pcall(D.IsSkillNodeMaxed, sk, nd) isMax = (not okM) or isMax -- [แก้ 12] อ่านไม่ได้ = ถือว่าเต็ม
+            local okO, isOpen = pcall(D.IsSkillNodeOpen, sk, nd) isOpen = okO and isOpen -- [แก้ 12] อ่านไม่ได้ = ไม่เปิด
+            if not isMax then if isOpen then queue = queue + 1 else locked = locked + 1 end end
+        end
+        local lvSum, lvMax = 0, 0
+        for _, f0 in pairs(fams) do lvSum = lvSum + f0.lv lvMax = lvMax + f0.max end
+        -- สมองกลาง (ตัวเดียวกับที่ระบบอัพตัวใช้)
+        local br = p.__brain()
+        local target, mode = br.target, br.mode
+        -- นับที่อัพไป
+        local tl = totalLevels(r)
+        if baseLv == nil then baseLv = tl end
+        if tl > baseLv then bought = bought + (tl - baseLv) end
+        baseLv = tl
+        -- เวลา
+        local income = incRate(hist.money)
+        local moneyEta = 0
+        if target and target.cost and money < target.cost then moneyEta = income > 0 and (target.cost - money) / income or math.huge end
+        local key = (target and target.key or "none") .. mode
+        if key ~= waitKey then waitKey = key waitStart = os.clock() end
+        local waiting = (mode == "save" or mode == "power" or (mode == "zone" and not (target.cost and money >= target.cost)))
+        local waited = waiting and (os.clock() - waitStart) or 0
+        local crewOn = (mode == "power" or mode == "free" or (mode == "zone" and b.Flags.crew_wait_zone_unlock == false))
+        local crewOk, crewWhy, crewCol = crewStatus(mode, target, crewOn)
+
+        local head = col("FFE14D", "[ My Anime Mine ]") .. " "
+        local tname = target and (col("FFE14D", esc(target.name)) .. (target.dmg and (" " .. col("FF7A7A", "[ลำดับแรก]")) or "")) or ""
+        if mode == "nodata" then head = head .. "รอข้อมูลเกม…"
+        elseif mode == "buy" then head = head .. "ของครบแล้ว · กำลังอัพ " .. tname
+        elseif mode == "save" then head = head .. "รอ " .. col("FFA53A", "เงิน") .. " สำหรับ " .. tname .. " · พร้อมอีก " .. mmss(moneyEta)
+        elseif mode == "power" then
+            if crewOk or crewWhy == "รอบถัดไป" then head = head .. "รอ " .. col("FFA53A", "พลังทีม") .. " สำหรับ " .. tname .. " · กำลังอัพตัว/อีเตอร์/Core/Mutation เพิ่มพลัง"
+            else head = head .. "รอ " .. col("FFA53A", "พลังทีม") .. " สำหรับ " .. tname .. " · อัพตัวไม่ได้: " .. col(crewCol, crewWhy) end
+        elseif mode == "zone" then
+            if not target.cost then head = head .. "รอ " .. tname .. " (อ่านราคาไม่ได้)"
+            elseif money >= target.cost then head = head .. "ของครบแล้ว · กำลัง" .. tname
+            else head = head .. "รอ " .. col("FFA53A", "เงิน") .. " สำหรับ " .. tname .. " · พร้อมอีก " .. mmss(moneyEta) end
+        else head = head .. (nk and "ไม่มีวิจัยให้ซื้อตอนนี้ · ใช้เงินอัพตัวได้" or col("6DFF7A", "ครบทุกโซนแล้ว")) end
+        -- [แก้ v19] โหนดลำดับแรกติดพลังแต่อัพตัวเพิ่มพลังไม่ได้ → บอกเหตุผล (ระบบเลยซื้ออันถูกสุดไปก่อน)
+        if (mode == "buy" or mode == "save") and br.first and br.first.node then
+            head = head .. " · " .. col("FF7A7A", esc(br.first.node.name) .. " ติดพลัง: " .. crewWhyTh(br.first.why))
+        end
+        headL.Text = head
+        line2.Text = "อัพแล้ว " .. bought .. " · รอของ " .. math.floor(waited) .. " วิ · คิว " .. queue .. " · ล็อก " .. locked ..
+            " · อัพตัว " .. (crewOk and col("6DFF7A", "ทำงาน") or col(crewCol, (crewWhy == "ปิดอยู่") and "ปิด" or ("รอ: " .. crewWhy)))
+        do -- [แก้ v21] กฎสำรองเปิดอยู่ → บอกว่ารวมระดับไหนด้วย
+            local fbOn = b.Flags.auto_crew and p.__crewFallbackOn()
+            if fbOn then line2.Text = line2.Text .. " " .. col("FFA53A", "(รวม " .. esc(fbOn) .. ")") end
+        end
+        local oreKinds = 0
+        for _, v1 in pairs(r.Ores or {}) do if type(v1) == "number" and v1 > 0 then oreKinds = oreKinds + 1 end end
+        line3.Text = "สกิล Lv." .. lvSum .. "/" .. lvMax .. " (" .. tostring(tzone) .. ") · ไอเท็ม " .. oreKinds .. " ชนิด · $" .. big(money)
+        -- [แก้ v20] สถานะโพชั่น
+        if b.Flags.auto_potion then
+            local pOn, pAll, pBan = p.__potStatus(r)
+            if pAll > 0 then
+                line3.Text = line3.Text .. " · โพชั่น " .. col(pOn == pAll and "6DFF7A" or "FFA53A", pOn .. "/" .. pAll) ..
+                    (pBan and (" " .. col("FF7A7A", "เกมไม่รับ " .. esc(pBan))) or "")
+            end
+        end
+
+        local need = {}
+        if target then
+            if target.cost then
+                local done = money >= target.cost
+                need[#need + 1] = "1. เงิน $" .. big(math.min(money, target.cost)) .. "/$" .. big(target.cost) .. " · " ..
+                    (done and col("6DFF7A", "✓ ครบ") or ((mode == "power") and ("อีก " .. mmss(moneyEta)) or col("FFA53A", "อีก " .. mmss(moneyEta))))
+            else
+                need[#need + 1] = "1. เงิน · " .. col("CDD5E0", "อ่านราคาไม่ได้")
+            end
+            if target.req then
+                local have = tonumber(br.power) or 0
+                local okp = have >= target.req
+                need[#need + 1] = "2. พลังทีม " .. big(math.min(have, target.req)) .. "/" .. big(target.req) .. " · " ..
+                    (okp and col("6DFF7A", "✓ ครบ") or col("FFA53A", "ยังไม่ถึง"))
+            end
+        else
+            need[1] = col("6DFF7A", "ไม่มี")
+        end
+        needL.Text = table.concat(need, "\n")
+
+        -- ไอเท็ม (แร่) + อัตรา/วิ
+        local list = {}
+        for k1, v1 in pairs(r.Ores or {}) do
+            if type(v1) == "number" then
+                hist.ores[k1] = hist.ores[k1] or {}
+                pushHist(hist.ores[k1], v1)
+                if v1 > 0 then list[#list + 1] = { k1, v1, incRate(hist.ores[k1]) } end
+            end
+        end
+        table.sort(list, function(a1, a2) return a1[2] > a2[2] end)
+        local lines = {}
+        for i1 = 1, math.min(8, #list) do lines[#lines + 1] = i1 .. ". " .. esc(list[i1][1]) .. " " .. big(list[i1][2]) .. " · " .. rateTxt(list[i1][3]) end
+        itemsL.Text = (#lines > 0) and table.concat(lines, "\n") or col("CDD5E0", "ยังไม่มีแร่")
+
+        moneyL.Text = "$" .. big(money)
+        local etaTxt = "--:--"
+        if mode == "save" or (mode == "zone" and target.cost) then etaTxt = mmss(moneyEta)
+        elseif mode == "buy" then etaTxt = "00:00" end
+        etaL.Text = 'next upgrade in <font size="32">' .. etaTxt .. "</font>"
+    end
+    b.__threads[#b.__threads + 1] = task.spawn(function()
+        while not b.Unloaded and sg.Parent do
+            local ok, err = pcall(refresh)
+            if not ok then headL.Text = col("FFA53A", "HUD error: " .. esc(err)) end
+            task.wait(1)
+        end
+    end)
+
+    -- ป้ายบนหิน (ESP) — เปิดใน CONFIG.node_esp
+    if b.Flags.node_esp then
+        local tags = {}
+        b.__threads[#b.__threads + 1] = task.spawn(function()
+            while not b.Unloaded do
+                pcall(function()
+                    local nodes0 = T()
+                    local seen = {}
+                    local cv = b.Flags.esp_colour
+                    local colr = (type(cv) == "table" and Color3.new(cv[1] or 0, cv[2] or 0, cv[3] or 0)) or Color3.fromRGB(34, 211, 238)
+                    for _, nd in ipairs(nodes0) do
+                        seen[nd] = true
+                        local part = (nd:IsA("Model") and (nd.PrimaryPart or nd:FindFirstChildWhichIsA("BasePart"))) or nd
+                        if part then
+                            local bb = tags[nd]
+                            if not bb or not bb.Parent then
+                                bb = Instance.new("BillboardGui")
+                                bb.Name = "NodeTag" bb.AlwaysOnTop = true bb.Size = UDim2.fromOffset(190, 46)
+                                bb.StudsOffsetWorldSpace = Vector3.new(0, 4, 0) bb.Adornee = part bb.Parent = sg
+                                local t1 = Instance.new("TextLabel") t1.Name = "Title" t1.BackgroundTransparency = 1 t1.Size = UDim2.new(1, 0, 0, 16)
+                                t1.Font = Enum.Font.GothamBold t1.TextSize = 13 t1.TextStrokeTransparency = .4 t1.Parent = bb
+                                local t2 = Instance.new("TextLabel") t2.Name = "Sub" t2.BackgroundTransparency = 1 t2.Position = UDim2.fromOffset(0, 16)
+                                t2.Size = UDim2.new(1, 0, 0, 14) t2.Font = Enum.Font.Gotham t2.TextSize = 12 t2.TextColor3 = Color3.fromRGB(220, 220, 230) t2.TextStrokeTransparency = .5 t2.Parent = bb
+                                local bg = Instance.new("Frame") bg.Name = "BarBg" bg.AnchorPoint = Vector2.new(.5, 0) bg.Position = UDim2.new(.5, 0, 0, 33)
+                                bg.Size = UDim2.fromOffset(120, 4) bg.BackgroundColor3 = Color3.fromRGB(20, 22, 28) bg.BorderSizePixel = 0 bg.Parent = bb
+                                local br = Instance.new("Frame") br.Name = "Bar" br.Size = UDim2.fromScale(1, 1) br.BorderSizePixel = 0 br.Parent = bg
+                                tags[nd] = bb
+                            end
+                            local hp = nd:GetAttribute("NodeHP") or 0
+                            local mx = math.max(nd:GetAttribute("NodeMaxHP") or 1, 1)
+                            local fr = math.clamp(hp / mx, 0, 1)
+                            bb.Title.Text = tostring(nd:GetAttribute("NodeTitle") or nd.Name)
+                            bb.Title.TextColor3 = colr
+                            bb.Sub.Visible = b.Flags.esp_ore ~= false
+                            bb.Sub.Text = ("%s  ·  %s  ·  %d%%"):format(tostring(nd:GetAttribute("NodeOre") or "?"), tostring(nd:GetAttribute("NodeTier") or "?"), math.floor(fr * 100 + .5))
+                            bb.BarBg.Visible = b.Flags.esp_hp ~= false
+                            bb.BarBg.Bar.Size = UDim2.fromScale(fr, 1)
+                            bb.BarBg.Bar.BackgroundColor3 = colr
+                        end
+                    end
+                    for nd, bb in pairs(tags) do if not seen[nd] then pcall(function() bb:Destroy() end) tags[nd] = nil end end
+                end)
+                task.wait(.5)
+            end
+        end)
+    end
+end
